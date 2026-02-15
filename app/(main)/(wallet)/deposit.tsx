@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Card } from '../../../src/components/ui';
-import { virtualAccount } from '../../../src/mock/bankAccounts';
+import { useProfile } from '../../../src/hooks/useProfile';
 import { lightHaptic } from '../../../src/utils/haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useUIStore } from '../../../src/stores';
@@ -27,91 +27,75 @@ const CardIcon = () => (
 export default function DepositScreen() {
   const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
+  const { data: profile } = useProfile();
+  const virtualAccount = profile?.virtual_account;
 
   const handleCopyAccount = async () => {
     lightHaptic();
-    await Clipboard.setStringAsync(virtualAccount.accountNumber);
-    showToast({ type: 'success', title: 'Account number copied!' });
+    if (virtualAccount?.account_number) {
+      await Clipboard.setStringAsync(virtualAccount.account_number);
+      showToast({ type: 'success', title: 'Account number copied!' });
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Add Money" />
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>Choose how you want to add money</Text>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-4">
+        <Text className="text-body-lg font-inter text-txt-secondary mb-6">Choose how you want to add money</Text>
 
-        <Card style={styles.methodCard} pressable onPress={() => showToast({ type: 'info', title: 'Use the account details below to transfer' })}>
-          <View style={styles.methodIcon}>
+        <Card className="flex-row items-center mb-3 p-4" pressable onPress={() => showToast({ type: 'info', title: 'Use the account details below to transfer' })}>
+          <View className="w-14 h-14 rounded-xl bg-bg-tertiary items-center justify-center mr-4">
             <BankIcon />
           </View>
-          <View style={styles.methodInfo}>
-            <Text style={styles.methodTitle}>Bank Transfer</Text>
-            <Text style={styles.methodDesc}>Transfer from any bank</Text>
+          <View className="flex-1">
+            <Text className="text-title-md font-inter-medium text-txt-primary">Bank Transfer</Text>
+            <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">Transfer from any bank</Text>
           </View>
-          <Text style={styles.methodBadge}>Free</Text>
+          <Text className="text-label-md font-inter-medium text-success-main bg-success-main/10 px-2 py-1 rounded-md overflow-hidden">Free</Text>
         </Card>
 
-        <Card style={styles.methodCard} pressable onPress={() => router.push('/(main)/(wallet)/deposit-card')}>
-          <View style={styles.methodIcon}>
+        <Card className="flex-row items-center mb-3 p-4" pressable onPress={() => router.push('/(main)/(wallet)/deposit-card')}>
+          <View className="w-14 h-14 rounded-xl bg-bg-tertiary items-center justify-center mr-4">
             <CardIcon />
           </View>
-          <View style={styles.methodInfo}>
-            <Text style={styles.methodTitle}>Card Payment</Text>
-            <Text style={styles.methodDesc}>Visa, Mastercard, Verve</Text>
+          <View className="flex-1">
+            <Text className="text-title-md font-inter-medium text-txt-primary">Card Payment</Text>
+            <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">Visa, Mastercard, Verve</Text>
           </View>
-          <Text style={styles.methodBadgeFee}>1.5%</Text>
+          <Text className="text-label-md font-inter-medium text-txt-tertiary bg-bg-tertiary px-2 py-1 rounded-md overflow-hidden">1.5%</Text>
         </Card>
 
-        <View style={styles.divider} />
+        {virtualAccount && (
+          <>
+            <View className="h-px bg-border my-6" />
 
-        <Text style={styles.sectionTitle}>Your Virtual Account</Text>
-        <Card style={styles.accountCard}>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>Bank</Text>
-            <Text style={styles.accountValue}>{virtualAccount.bankName}</Text>
-          </View>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>Account Number</Text>
-            <TouchableOpacity onPress={handleCopyAccount} style={styles.copyRow}>
-              <Text style={styles.accountValueBold}>{virtualAccount.accountNumber}</Text>
-              <Text style={styles.copyText}>Copy</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>Account Name</Text>
-            <Text style={styles.accountValue}>{virtualAccount.accountName}</Text>
-          </View>
-        </Card>
+            <Text className="text-title-md font-inter-medium text-txt-primary mb-3">Your Virtual Account</Text>
+            <Card className="mb-4">
+              <View className="flex-row justify-between items-center py-2">
+                <Text className="text-body-md font-inter text-txt-secondary">Bank</Text>
+                <Text className="text-body-md font-inter text-txt-primary">{virtualAccount.bank_name}</Text>
+              </View>
+              <View className="flex-row justify-between items-center py-2">
+                <Text className="text-body-md font-inter text-txt-secondary">Account Number</Text>
+                <TouchableOpacity onPress={handleCopyAccount} className="flex-row items-center gap-2">
+                  <Text className="text-body-md font-inter text-txt-primary font-bold">{virtualAccount.account_number}</Text>
+                  <Text className="text-label-md font-inter-medium text-accent-500">Copy</Text>
+                </TouchableOpacity>
+              </View>
+              <View className="flex-row justify-between items-center py-2">
+                <Text className="text-body-md font-inter text-txt-secondary">Account Name</Text>
+                <Text className="text-body-md font-inter text-txt-primary">{virtualAccount.account_name}</Text>
+              </View>
+            </Card>
 
-        <Text style={styles.note}>
-          Transfers to this account will be credited instantly 24/7
-        </Text>
+            <Text className="text-body-sm font-inter text-txt-tertiary text-center">
+              Transfers to this account will be credited instantly 24/7
+            </Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  subtitle: { ...typography.bodyLarge, color: colors.text.secondary, marginBottom: spacing[6] },
-  methodCard: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing[3], padding: spacing[4] },
-  methodIcon: { width: 56, height: 56, borderRadius: borderRadius.xl, backgroundColor: colors.background.tertiary, alignItems: 'center', justifyContent: 'center', marginRight: spacing[4] },
-  methodInfo: { flex: 1 },
-  methodTitle: { ...typography.titleMedium, color: colors.text.primary },
-  methodDesc: { ...typography.bodySmall, color: colors.text.tertiary, marginTop: 2 },
-  methodBadge: { ...typography.labelMedium, color: colors.success.main, backgroundColor: colors.success.background, paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: borderRadius.md },
-  methodBadgeFee: { ...typography.labelMedium, color: colors.text.tertiary, backgroundColor: colors.background.tertiary, paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: borderRadius.md },
-  divider: { height: 1, backgroundColor: colors.border.default, marginVertical: spacing[6] },
-  sectionTitle: { ...typography.titleMedium, color: colors.text.primary, marginBottom: spacing[3] },
-  accountCard: { marginBottom: spacing[4] },
-  accountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing[2] },
-  accountLabel: { ...typography.bodyMedium, color: colors.text.secondary },
-  accountValue: { ...typography.bodyMedium, color: colors.text.primary },
-  accountValueBold: { ...typography.bodyMedium, color: colors.text.primary, fontWeight: '700' },
-  copyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  copyText: { ...typography.labelMedium, color: colors.primary[500] },
-  note: { ...typography.bodySmall, color: colors.text.tertiary, textAlign: 'center' },
-});

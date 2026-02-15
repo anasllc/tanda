@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, spacing } from '../../theme';
+import { View, ViewStyle } from 'react-native';
 
 interface DividerProps {
   style?: ViewStyle;
@@ -15,8 +14,8 @@ export const Divider: React.FC<DividerProps> = ({
 }) => {
   return (
     <View
+      className={vertical ? 'w-px bg-border mx-3' : 'h-px bg-border my-3'}
       style={[
-        vertical ? styles.vertical : styles.horizontal,
         customSpacing !== undefined && {
           marginVertical: vertical ? 0 : customSpacing,
           marginHorizontal: vertical ? customSpacing : 0,
@@ -26,16 +25,3 @@ export const Divider: React.FC<DividerProps> = ({
     />
   );
 };
-
-const styles = StyleSheet.create({
-  horizontal: {
-    height: 1,
-    backgroundColor: colors.border.default,
-    marginVertical: spacing[3],
-  },
-  vertical: {
-    width: 1,
-    backgroundColor: colors.border.default,
-    marginHorizontal: spacing[3],
-  },
-});

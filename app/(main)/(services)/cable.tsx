@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { useRouter } from 'expo-router';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
-import { Button } from '../../../src/components/ui';
+import { Button, PinInput, Keypad } from '../../../src/components/ui';
 import { cableProviders, cablePlans } from '../../../src/mock/services';
 import { formatCurrency } from '../../../src/utils/formatters';
 import { lightHaptic, withOpacity } from '../../../src/utils';
 import { useUIStore } from '../../../src/stores';
+import { usePayCable } from '../../../src/hooks/useBills';
 
 export default function CableScreen() {
+  const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
+  const payCable = usePayCable();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [smartCardNumber, setSmartCardNumber] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<typeof cablePlans[0] | null>(null);
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState(false);
 
   const handleProviderSelect = (providerId: string) => {
     lightHaptic();
@@ -31,41 +38,126 @@ export default function CableScreen() {
 
   const handleContinue = () => {
     if (!isValid || !selectedPlan) return;
-    const provider = cableProviders.find(p => p.id === selectedProvider);
-    showToast({
-      type: 'success',
-      title: `Subscribing to ${selectedPlan.name}`,
-      message: `${provider?.name} - ${formatCurrency(selectedPlan.price)}`
-    });
+    setShowPin(true);
   };
 
+  const handlePinComplete = async (enteredPin: string) => {
+    if (!selectedPlan || !selectedProvider) return;
+    try {
+      await payCable.mutateAsync({
+        smartcardNumber: smartCardNumber,
+        provider: selectedProvider,
+        packageCode: selectedPlan.id,
+        amountLocal: selectedPlan.price,
+        pin: enteredPin,
+      });
+      const provider = cableProviders.find(p => p.id === selectedProvider);
+      showToast({
+        type: 'success',
+        title: 'Subscription successful',
+        message: `${selectedPlan.name} - ${provider?.name}`,
+      });
+      router.back();
+    } catch (err: any) {
+      if (err.code === 'INVALID_PIN') {
+        setPinError(true);
+        setPin('');
+      } else {
+        showToast({ type: 'error', title: 'Payment failed', message: err.message });
+        setShowPin(false);
+        setPin('');
+      }
+    }
+  };
+
+  const handleKeyPress = (key: string) => {
+    if (pin.length < 6) {
+      const newPin = pin + key;
+      setPin(newPin);
+      setPinError(false);
+      if (newPin.length === 6) {
+        handlePinComplete(newPin);
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    setPin(pin.slice(0, -1));
+    setPinError(false);
+  };
+
+  if (showPin) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-primary">
+        <Header showBack title="Enter PIN" onBack={() => { setShowPin(false); setPin(''); }} />
+
+        <View className="flex-1 items-center pt-8">
+          <Text className="text-headline-sm font-inter-semibold text-txt-primary mb-2">
+            Enter your PIN to confirm
+          </Text>
+          <Text className="text-body-md font-inter text-txt-secondary mb-8">
+            Subscribing to {selectedPlan?.name} - {formatCurrency(selectedPlan?.price ?? 0)}
+          </Text>
+
+          <View className="mb-4">
+            <PinInput
+              value={pin}
+              onChange={setPin}
+              error={pinError}
+              disabled={payCable.isPending}
+            />
+          </View>
+
+          {pinError && (
+            <Text className="text-body-md font-inter text-error-main">
+              Incorrect PIN. Please try again.
+            </Text>
+          )}
+        </View>
+
+        <Keypad
+          onKeyPress={handleKeyPress}
+          onDelete={handleDelete}
+          disabled={payCable.isPending}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack title="Cable TV" />
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Select Provider</Text>
-              <View style={styles.providers}>
+            <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-4" showsVerticalScrollIndicator={false}>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Select Provider</Text>
+              <View className="flex-row flex-wrap gap-2">
                 {cableProviders.map((provider) => (
                   <TouchableOpacity
                     key={provider.id}
-                    style={[styles.providerCard, selectedProvider === provider.id && styles.providerCardSelected]}
+                    className={`rounded-lg border px-4 py-3 ${
+                      selectedProvider === provider.id
+                        ? 'border-accent-500'
+                        : 'bg-bg-secondary border-border'
+                    }`}
+                    style={selectedProvider === provider.id ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
                     onPress={() => handleProviderSelect(provider.id)}
                   >
-                    <Text style={[styles.providerName, selectedProvider === provider.id && styles.providerNameSelected]}>{provider.name}</Text>
+                    <Text className={`text-label-lg font-inter-medium ${
+                      selectedProvider === provider.id ? 'text-accent-500' : 'text-txt-primary'
+                    }`}>{provider.name}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.label}>Smart Card / IUC Number</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Smart Card / IUC Number</Text>
               <TextInput
-                style={styles.input}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                 value={smartCardNumber}
                 onChangeText={setSmartCardNumber}
                 placeholder="Enter smart card number"
@@ -76,17 +168,28 @@ export default function CableScreen() {
 
               {selectedProvider && (
                 <>
-                  <Text style={styles.label}>Select Plan</Text>
-                  <View style={styles.plans}>
+                  <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Select Plan</Text>
+                  <View className="gap-3">
                     {providerPlans.map((plan) => (
                       <TouchableOpacity
                         key={plan.id}
-                        style={[styles.planCard, selectedPlan?.id === plan.id && styles.planCardSelected]}
+                        className={`rounded-xl border p-4 ${
+                          selectedPlan?.id === plan.id
+                            ? 'border-accent-500'
+                            : 'bg-bg-secondary border-border'
+                        }`}
+                        style={selectedPlan?.id === plan.id ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
                         onPress={() => handlePlanSelect(plan)}
                       >
-                        <Text style={[styles.planName, selectedPlan?.id === plan.id && styles.planNameSelected]}>{plan.name}</Text>
-                        <Text style={[styles.planChannels, selectedPlan?.id === plan.id && styles.planChannelsSelected]}>{plan.channels} Channels</Text>
-                        <Text style={[styles.planPrice, selectedPlan?.id === plan.id && styles.planPriceSelected]}>{formatCurrency(plan.price)}/mo</Text>
+                        <Text className={`text-title-sm font-inter-medium mb-1 ${
+                          selectedPlan?.id === plan.id ? 'text-accent-500' : 'text-txt-primary'
+                        }`}>{plan.name}</Text>
+                        <Text className={`text-body-sm font-inter mb-2 ${
+                          selectedPlan?.id === plan.id ? 'text-accent-400' : 'text-txt-tertiary'
+                        }`}>{plan.channels} Channels</Text>
+                        <Text className={`text-title-md font-inter-medium ${
+                          selectedPlan?.id === plan.id ? 'text-accent-500' : 'text-txt-primary'
+                        }`}>{formatCurrency(plan.price)}/mo</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -94,7 +197,7 @@ export default function CableScreen() {
               )}
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button title="Continue" onPress={handleContinue} fullWidth disabled={!isValid} />
             </View>
           </View>
@@ -103,27 +206,3 @@ export default function CableScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  label: { ...typography.labelLarge, color: colors.text.secondary, marginBottom: spacing[2], marginTop: spacing[4] },
-  providers: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  providerCard: { backgroundColor: colors.background.secondary, borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  providerCardSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.06) },
-  providerName: { ...typography.labelLarge, color: colors.text.primary },
-  providerNameSelected: { color: colors.primary[500] },
-  input: { backgroundColor: colors.background.tertiary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], paddingVertical: 0, fontSize: 16, color: colors.text.primary, height: layout.inputHeight },
-  plans: { gap: spacing[3] },
-  planCard: { backgroundColor: colors.background.secondary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, padding: spacing[4] },
-  planCardSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.06) },
-  planName: { ...typography.titleSmall, color: colors.text.primary, marginBottom: spacing[1] },
-  planNameSelected: { color: colors.primary[500] },
-  planChannels: { ...typography.bodySmall, color: colors.text.tertiary, marginBottom: spacing[2] },
-  planChannelsSelected: { color: colors.primary[400] },
-  planPrice: { ...typography.titleMedium, color: colors.text.primary },
-  planPriceSelected: { color: colors.primary[500] },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[8] },
-});

@@ -1,28 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../../../src/theme';
+import Animated from 'react-native-reanimated';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Button, Avatar, Keypad } from '../../../src/components/ui';
 import { formatCurrency } from '../../../src/utils/formatters';
 import { useAuthStore } from '../../../src/stores';
-import { getContactById } from '../../../src/mock/contacts';
+import { useShakeAnimation } from '../../../src/hooks/useAnimations';
 
 export default function AmountScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ contactId: string; contactName: string }>();
+  const params = useLocalSearchParams<{ contactId: string; contactName: string; contactUsername?: string }>();
   const balance = useAuthStore((state) => state.balance);
 
   const [amount, setAmount] = useState('');
+  const { animatedStyle: shakeStyle, shake } = useShakeAnimation();
 
-  const contact = params.contactId ? getContactById(params.contactId) : null;
   const numericAmount = parseFloat(amount) || 0;
   const isValidAmount = numericAmount > 0 && numericAmount <= balance;
+  const isOverBalance = numericAmount > balance;
 
   const handleKeyPress = (key: string) => {
     if (amount.length < 10) {
-      // Prevent leading zeros
       if (amount === '0' && key !== '.') {
         setAmount(key);
       } else {
@@ -36,54 +37,82 @@ export default function AmountScreen() {
   };
 
   const handleContinue = () => {
+    if (isOverBalance) {
+      shake();
+      return;
+    }
     if (isValidAmount) {
       router.push({
         pathname: '/(main)/(send)/confirm',
         params: {
           contactId: params.contactId,
           contactName: params.contactName,
+          contactUsername: params.contactUsername || '',
           amount: amount,
         },
       });
     }
   };
 
+  const balancePercent = Math.min((numericAmount / balance) * 100, 100);
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Enter Amount" />
 
-      <View style={styles.content}>
-        <View style={styles.recipientContainer}>
+      <View className="flex-1 items-center pt-6">
+        <View className="items-center mb-8">
           <Avatar name={params.contactName || 'User'} size="medium" />
-          <Text style={styles.recipientName}>{params.contactName}</Text>
-          {contact?.username && (
-            <Text style={styles.recipientUsername}>@{contact.username}</Text>
+          <Text className="text-title-md font-inter-medium text-txt-primary mt-2">
+            {params.contactName}
+          </Text>
+          {params.contactUsername && (
+            <Text className="text-body-sm font-inter text-accent-500 mt-0.5">
+              @{params.contactUsername}
+            </Text>
           )}
         </View>
 
-        <View style={styles.amountContainer}>
-          <Text style={styles.currencySymbol}>₦</Text>
-          <Text style={[styles.amount, !amount && styles.amountPlaceholder]}>
+        <Animated.View className="flex-row items-start justify-center" style={shakeStyle}>
+          <Text className="text-headline-md font-inter-bold text-accent-400 mt-2 mr-1">
+            ₦
+          </Text>
+          <Text
+            className={`text-amount font-inter-bold ${amount ? 'text-txt-primary' : 'text-txt-tertiary'}`}
+            style={{ letterSpacing: -3 }}
+          >
             {amount || '0'}
           </Text>
+        </Animated.View>
+
+        {/* Balance progress bar */}
+        <View className="w-48 mt-4">
+          <View className="h-1 bg-bg-tertiary rounded-full overflow-hidden">
+            <View
+              className={`h-full rounded-full ${isOverBalance ? 'bg-error-main' : 'bg-accent-500'}`}
+              style={{ width: `${balancePercent}%` }}
+            />
+          </View>
         </View>
 
-        <Text style={styles.balanceText}>
+        <Text className="text-body-md font-inter text-txt-tertiary mt-3">
           Available: {formatCurrency(balance)}
         </Text>
 
-        {numericAmount > balance && (
-          <Text style={styles.errorText}>Insufficient balance</Text>
+        {isOverBalance && (
+          <Text className="text-body-md font-inter text-error-main mt-2">
+            Insufficient balance
+          </Text>
         )}
       </View>
 
-      <View style={styles.footer}>
+      <View className="pb-8">
         <Keypad
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
         />
 
-        <View style={styles.buttonContainer}>
+        <View className="px-5 mt-4">
           <Button
             title="Continue"
             onPress={handleContinue}
@@ -95,66 +124,3 @@ export default function AmountScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: spacing[6],
-  },
-  recipientContainer: {
-    alignItems: 'center',
-    marginBottom: spacing[8],
-  },
-  recipientName: {
-    ...typography.titleMedium,
-    color: colors.text.primary,
-    marginTop: spacing[2],
-  },
-  recipientUsername: {
-    ...typography.bodySmall,
-    color: colors.primary[500],
-    marginTop: 2,
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  currencySymbol: {
-    ...typography.headlineMedium,
-    color: colors.text.secondary,
-    marginTop: spacing[2],
-    marginRight: spacing[1],
-  },
-  amount: {
-    fontSize: 64,
-    fontWeight: '700',
-    color: colors.text.primary,
-    letterSpacing: -2,
-  },
-  amountPlaceholder: {
-    color: colors.text.tertiary,
-  },
-  balanceText: {
-    ...typography.bodyMedium,
-    color: colors.text.tertiary,
-    marginTop: spacing[4],
-  },
-  errorText: {
-    ...typography.bodyMedium,
-    color: colors.error.main,
-    marginTop: spacing[2],
-  },
-  footer: {
-    paddingBottom: spacing[8],
-  },
-  buttonContainer: {
-    paddingHorizontal: spacing[5],
-    marginTop: spacing[4],
-  },
-});

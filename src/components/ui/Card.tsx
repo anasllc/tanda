@@ -1,68 +1,62 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   View,
-  StyleSheet,
   ViewStyle,
   TouchableOpacity,
   TouchableOpacityProps,
-  Animated,
 } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Animated from 'react-native-reanimated';
+import { shadows } from '../../theme';
+import { usePressAnimation } from '../../hooks/useAnimations';
 import { lightHaptic } from '../../utils/haptics';
 
 interface CardProps extends Omit<TouchableOpacityProps, 'style'> {
   children: React.ReactNode;
   style?: ViewStyle;
-  variant?: 'default' | 'elevated' | 'outlined';
+  className?: string;
+  variant?: 'default' | 'elevated' | 'outlined' | 'glass' | 'gradient';
   pressable?: boolean;
   haptic?: boolean;
 }
 
+const variantClasses: Record<string, string> = {
+  default: 'bg-bg-card rounded-2xl p-4',
+  elevated: 'bg-bg-elevated rounded-2xl p-4',
+  outlined: 'bg-transparent rounded-2xl p-4 border border-border',
+  glass: 'bg-bg-card/80 rounded-2xl p-4',
+  gradient: 'rounded-2xl p-4',
+};
+
 export const Card: React.FC<CardProps> = ({
   children,
   style,
+  className = '',
   variant = 'default',
   pressable = false,
   haptic = true,
   onPress,
   ...props
 }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    if (pressable) {
-      Animated.spring(scale, {
-        toValue: 0.98,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  const handlePressOut = () => {
-    if (pressable) {
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
+  const { animatedStyle, onPressIn, onPressOut } = usePressAnimation(0.98);
 
   const handlePress = (e: any) => {
     if (haptic && pressable) lightHaptic();
     onPress?.(e);
   };
 
-  const variantStyle = getVariantStyle(variant);
+  const baseClass = variantClasses[variant] || variantClasses.default;
+  const elevatedShadow = variant === 'elevated' ? shadows.glowPrimarySubtle : undefined;
 
   if (pressable) {
     return (
-      <Animated.View style={{ transform: [{ scale }] }}>
+      <Animated.View style={[animatedStyle, elevatedShadow]}>
         <TouchableOpacity
-          style={[styles.base, variantStyle, style]}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          className={`${baseClass} ${className}`}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
           onPress={handlePress}
           activeOpacity={0.9}
+          style={style}
           {...props}
         >
           {children}
@@ -72,37 +66,8 @@ export const Card: React.FC<CardProps> = ({
   }
 
   return (
-    <View style={[styles.base, variantStyle, style]}>
+    <View className={`${baseClass} ${className}`} style={[elevatedShadow, style]}>
       {children}
     </View>
   );
 };
-
-const getVariantStyle = (variant: 'default' | 'elevated' | 'outlined'): ViewStyle => {
-  switch (variant) {
-    case 'elevated':
-      return {
-        backgroundColor: colors.background.elevated,
-        ...shadows.md,
-      };
-    case 'outlined':
-      return {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: colors.border.default,
-      };
-    default:
-      return {
-        backgroundColor: colors.background.secondary,
-        borderWidth: 1,
-        borderColor: colors.border.default,
-      };
-  }
-};
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: borderRadius['2xl'],
-    padding: spacing[4],
-  },
-});

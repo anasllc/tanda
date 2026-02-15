@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Avatar, Badge, Card, Divider } from '../../../src/components/ui';
 import { useAuthStore } from '../../../src/stores';
 import { lightHaptic } from '../../../src/utils/haptics';
@@ -57,31 +57,38 @@ export default function MoreScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Card style={styles.profileCard}>
-          <View style={styles.profileHeader}>
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={['top']}>
+      <ScrollView contentContainerClassName="px-5 pt-4" showsVerticalScrollIndicator={false}>
+        <Card className="mb-6">
+          <View className="flex-row items-center mb-4">
             <Avatar name={user?.displayName || 'User'} size="xlarge" />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user?.displayName}</Text>
-              <Text style={styles.profileUsername}>@{user?.username}</Text>
+            <View className="ml-4 flex-1">
+              <Text className="text-title-lg font-inter-semibold text-txt-primary">{user?.displayName}</Text>
+              <Text className="text-body-md font-inter text-accent-500 mt-0.5 mb-2">@{user?.username}</Text>
               {user?.isVerified && <Badge label="Verified" variant="success" size="small" />}
             </View>
           </View>
-          <TouchableOpacity style={styles.viewProfileButton} onPress={handleViewProfile}>
-            <Text style={styles.viewProfileText}>View Profile</Text>
+          <TouchableOpacity
+            className="flex-row items-center justify-center py-3 rounded-xl"
+            style={{ backgroundColor: colors.primary[500] + '12' }}
+            onPress={handleViewProfile}
+          >
+            <Text className="text-label-lg font-inter-medium text-accent-500 mr-1">View Profile</Text>
             <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
               <Path d="M9 18L15 12L9 6" stroke={colors.primary[500]} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
         </Card>
 
-        <Card style={styles.menuCard}>
+        <Card className="p-0 overflow-hidden">
           {menuItems.map((item, index) => (
             <React.Fragment key={item.id}>
-              <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress(item.route)}>
-                <View style={styles.menuIcon}>{getIcon(item.icon)}</View>
-                <Text style={styles.menuLabel}>{item.label}</Text>
+              <TouchableOpacity
+                className="flex-row items-center p-4"
+                onPress={() => handleMenuPress(item.route)}
+              >
+                <View className="mr-4">{getIcon(item.icon)}</View>
+                <Text className="text-body-lg font-inter text-txt-primary flex-1">{item.label}</Text>
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                   <Path d="M9 18L15 12L9 6" stroke={colors.text.tertiary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
@@ -91,34 +98,14 @@ export default function MoreScreen() {
           ))}
         </Card>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Log Out</Text>
+        <TouchableOpacity className="items-center py-4 mt-6" onPress={handleLogout}>
+          <Text className="text-title-md font-inter-medium text-error-main">Log Out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>Version 1.0.0</Text>
+        <Text className="text-body-sm font-inter text-txt-tertiary text-center mt-4">Version 1.0.0</Text>
 
-        <View style={styles.bottomPadding} />
+        <View className="h-[100px]" />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  profileCard: { marginBottom: spacing[6] },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing[4] },
-  profileInfo: { marginLeft: spacing[4], flex: 1 },
-  profileName: { ...typography.titleLarge, color: colors.text.primary },
-  profileUsername: { ...typography.bodyMedium, color: colors.primary[500], marginTop: 2, marginBottom: spacing[2] },
-  viewProfileButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary[500] + '12', paddingVertical: spacing[3], borderRadius: borderRadius.xl },
-  viewProfileText: { ...typography.labelLarge, color: colors.primary[500], marginRight: spacing[1] },
-  menuCard: { padding: 0, overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: spacing[4] },
-  menuIcon: { marginRight: spacing[4] },
-  menuLabel: { ...typography.bodyLarge, color: colors.text.primary, flex: 1 },
-  logoutButton: { alignItems: 'center', paddingVertical: spacing[4], marginTop: spacing[6] },
-  logoutText: { ...typography.titleMedium, color: colors.error.main },
-  version: { ...typography.bodySmall, color: colors.text.tertiary, textAlign: 'center', marginTop: spacing[4] },
-  bottomPadding: { height: layout.tabBarHeight + spacing[4] },
-});

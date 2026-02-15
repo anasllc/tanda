@@ -1,15 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Card, Avatar, Badge } from '../../../src/components/ui';
 import { BalanceCard } from '../../../src/components/home';
 import { formatCurrency, formatTransactionDate } from '../../../src/utils/formatters';
-import { getRecentTransactions, Transaction } from '../../../src/mock/transactions';
-import { savedBankAccounts, virtualAccount } from '../../../src/mock/bankAccounts';
+import { useRecentTransactions } from '../../../src/hooks/useTransactions';
+import { useProfile } from '../../../src/hooks/useProfile';
 import { lightHaptic } from '../../../src/utils/haptics';
 import { useUIStore } from '../../../src/stores';
 
@@ -27,7 +27,9 @@ const CopyIcon = () => (
 export default function WalletScreen() {
   const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
-  const recentTransactions = getRecentTransactions(3);
+  const { data: recentTransactions = [], isLoading: txLoading } = useRecentTransactions(3);
+  const { data: profile } = useProfile();
+  const virtualAccount = profile?.virtual_account;
 
   const handleDeposit = () => {
     lightHaptic();
@@ -46,21 +48,29 @@ export default function WalletScreen() {
 
   const handleCopyAccount = async () => {
     lightHaptic();
-    await Clipboard.setStringAsync(virtualAccount.accountNumber);
-    showToast({ type: 'success', title: 'Account number copied!' });
+    if (virtualAccount?.account_number) {
+      await Clipboard.setStringAsync(virtualAccount.account_number);
+      showToast({ type: 'success', title: 'Account number copied!' });
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={['top']}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerClassName="px-5 pt-4"
         showsVerticalScrollIndicator={false}
       >
         <BalanceCard />
 
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleDeposit}>
-            <View style={[styles.actionIcon, { backgroundColor: colors.success.background }]}>
+        <View className="flex-row gap-4 mt-6">
+          <TouchableOpacity
+            className="flex-1 bg-bg-secondary rounded-2xl border border-border p-4 items-center"
+            onPress={handleDeposit}
+          >
+            <View
+              className="w-12 h-12 rounded-xl items-center justify-center mb-2"
+              style={{ backgroundColor: colors.success.background }}
+            >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M12 5V19M5 12H19"
@@ -70,11 +80,17 @@ export default function WalletScreen() {
                 />
               </Svg>
             </View>
-            <Text style={styles.actionLabel}>Add Money</Text>
+            <Text className="text-label-lg font-inter-medium text-txt-primary">Add Money</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={handleWithdraw}>
-            <View style={[styles.actionIcon, { backgroundColor: colors.error.background }]}>
+          <TouchableOpacity
+            className="flex-1 bg-bg-secondary rounded-2xl border border-border p-4 items-center"
+            onPress={handleWithdraw}
+          >
+            <View
+              className="w-12 h-12 rounded-xl items-center justify-center mb-2"
+              style={{ backgroundColor: colors.error.background }}
+            >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M12 19V5M5 12L12 5L19 12"
@@ -85,203 +101,86 @@ export default function WalletScreen() {
                 />
               </Svg>
             </View>
-            <Text style={styles.actionLabel}>Withdraw</Text>
+            <Text className="text-label-lg font-inter-medium text-txt-primary">Withdraw</Text>
           </TouchableOpacity>
         </View>
 
-        <Card style={styles.accountCard}>
-          <Text style={styles.cardTitle}>Virtual Account</Text>
-          <Text style={styles.cardSubtitle}>Deposit via bank transfer</Text>
+        {virtualAccount && (
+          <Card className="mt-6">
+            <Text className="text-title-md font-inter-medium text-txt-primary mb-1">Virtual Account</Text>
+            <Text className="text-body-sm font-inter text-txt-tertiary mb-4">Deposit via bank transfer</Text>
 
-          <View style={styles.accountDetails}>
-            <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>Bank</Text>
-              <Text style={styles.accountValue}>{virtualAccount.bankName}</Text>
-            </View>
-            <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>Account Number</Text>
-              <View style={styles.accountValueRow}>
-                <Text style={styles.accountValue}>{virtualAccount.accountNumber}</Text>
-                <TouchableOpacity onPress={handleCopyAccount} style={styles.copyButton}>
-                  <CopyIcon />
-                </TouchableOpacity>
+            <View className="gap-3">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-body-md font-inter text-txt-secondary">Bank</Text>
+                <Text className="text-body-md font-inter text-txt-primary font-semibold">{virtualAccount.bank_name}</Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-body-md font-inter text-txt-secondary">Account Number</Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-body-md font-inter text-txt-primary font-semibold">{virtualAccount.account_number}</Text>
+                  <TouchableOpacity onPress={handleCopyAccount} className="p-1">
+                    <CopyIcon />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-body-md font-inter text-txt-secondary">Account Name</Text>
+                <Text className="text-body-md font-inter text-txt-primary font-semibold">{virtualAccount.account_name}</Text>
               </View>
             </View>
-            <View style={styles.accountRow}>
-              <Text style={styles.accountLabel}>Account Name</Text>
-              <Text style={styles.accountValue}>{virtualAccount.accountName}</Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        )}
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Transactions</Text>
+        <View className="mt-6">
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-title-md font-inter-medium text-txt-primary">Recent Transactions</Text>
             <TouchableOpacity onPress={handleViewTransactions}>
-              <Text style={styles.viewAll}>View All</Text>
+              <Text className="text-label-lg font-inter-medium text-accent-500">View All</Text>
             </TouchableOpacity>
           </View>
 
           <Card>
-            {recentTransactions.map((transaction, index) => (
-              <View
-                key={transaction.id}
-                style={[
-                  styles.transactionItem,
-                  index < recentTransactions.length - 1 && styles.transactionItemBorder,
-                ]}
-              >
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionDesc}>{transaction.description}</Text>
-                  <Text style={styles.transactionDate}>
-                    {formatTransactionDate(transaction.createdAt)}
+            {txLoading ? (
+              <View className="py-6 items-center">
+                <ActivityIndicator color={colors.primary[500]} />
+              </View>
+            ) : recentTransactions.length === 0 ? (
+              <View className="py-6 items-center">
+                <Text className="text-body-md font-inter text-txt-tertiary">No transactions yet</Text>
+              </View>
+            ) : (
+              recentTransactions.map((transaction, index) => (
+                <View
+                  key={transaction.id}
+                  className={`flex-row justify-between items-center py-3 ${
+                    index < recentTransactions.length - 1 ? 'border-b border-border' : ''
+                  }`}
+                >
+                  <View className="flex-1">
+                    <Text className="text-body-md font-inter text-txt-primary">{transaction.description}</Text>
+                    <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">
+                      {formatTransactionDate(transaction.created_at)}
+                    </Text>
+                  </View>
+                  <Text
+                    className={`text-title-sm font-inter-medium font-semibold ${
+                      transaction.type === 'receive' || transaction.type === 'deposit'
+                        ? 'text-success-main'
+                        : 'text-txt-primary'
+                    }`}
+                  >
+                    {transaction.type === 'receive' || transaction.type === 'deposit' ? '+' : '-'}
+                    {formatCurrency(transaction.amount)}
                   </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.transactionAmount,
-                    transaction.type === 'receive' || transaction.type === 'deposit'
-                      ? styles.amountPositive
-                      : styles.amountNegative,
-                  ]}
-                >
-                  {transaction.type === 'receive' || transaction.type === 'deposit' ? '+' : '-'}
-                  {formatCurrency(transaction.amount)}
-                </Text>
-              </View>
-            ))}
+              ))
+            )}
           </Card>
         </View>
 
-        <View style={styles.bottomPadding} />
+        <View className="h-[100px]" />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing[4],
-    marginTop: spacing[6],
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    padding: spacing[4],
-    alignItems: 'center',
-  },
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing[2],
-  },
-  actionLabel: {
-    ...typography.labelLarge,
-    color: colors.text.primary,
-  },
-  accountCard: {
-    marginTop: spacing[6],
-  },
-  cardTitle: {
-    ...typography.titleMedium,
-    color: colors.text.primary,
-    marginBottom: spacing[1],
-  },
-  cardSubtitle: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    marginBottom: spacing[4],
-  },
-  accountDetails: {
-    gap: spacing[3],
-  },
-  accountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  accountLabel: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
-  },
-  accountValue: {
-    ...typography.bodyMedium,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  accountValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  copyButton: {
-    padding: spacing[1],
-  },
-  section: {
-    marginTop: spacing[6],
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[3],
-  },
-  sectionTitle: {
-    ...typography.titleMedium,
-    color: colors.text.primary,
-  },
-  viewAll: {
-    ...typography.labelLarge,
-    color: colors.primary[500],
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-  },
-  transactionItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionDesc: {
-    ...typography.bodyMedium,
-    color: colors.text.primary,
-  },
-  transactionDate: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    marginTop: 2,
-  },
-  transactionAmount: {
-    ...typography.titleSmall,
-    fontWeight: '600',
-  },
-  amountPositive: {
-    color: colors.success.main,
-  },
-  amountNegative: {
-    color: colors.text.primary,
-  },
-  bottomPadding: {
-    height: layout.tabBarHeight + spacing[4],
-  },
-});

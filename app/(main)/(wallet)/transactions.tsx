@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Chip, Avatar, EmptyState } from '../../../src/components/ui';
-import { transactions, Transaction, TransactionType } from '../../../src/mock/transactions';
+import { useTransactions, Transaction } from '../../../src/hooks/useTransactions';
 import { formatCurrency, formatTransactionDate, formatDateGroup } from '../../../src/utils/formatters';
 import { lightHaptic } from '../../../src/utils/haptics';
+
+type TransactionType = 'send' | 'receive' | 'deposit' | 'airtime';
 
 const filters: { label: string; value: TransactionType | 'all' }[] = [
   { label: 'All', value: 'all' },
@@ -21,25 +23,44 @@ export default function TransactionsScreen() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<TransactionType | 'all'>('all');
 
-  const filteredTransactions = activeFilter === 'all'
-    ? transactions
-    : transactions.filter((t) => t.type === activeFilter);
-
-  const groupedTransactions = filteredTransactions.reduce((groups, transaction) => {
-    const date = formatDateGroup(transaction.createdAt);
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(transaction);
-    return groups;
-  }, {} as Record<string, Transaction[]>);
-
-  const sections = Object.entries(groupedTransactions).map(([title, data]) => ({
-    title,
+  const {
     data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useTransactions({
+    type: activeFilter !== 'all' ? activeFilter : undefined,
+  });
+
+  const allTransactions = useMemo(
+    () => data?.pages?.flatMap((p) => p.transactions) ?? [],
+    [data]
+  );
+
+  const groupedTransactions = useMemo(() => {
+    return allTransactions.reduce((groups, transaction) => {
+      const date = formatDateGroup(transaction.created_at);
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(transaction);
+      return groups;
+    }, {} as Record<string, Transaction[]>);
+  }, [allTransactions]);
+
+  const sections = Object.entries(groupedTransactions).map(([title, items]) => ({
+    title,
+    data: items,
   }));
 
   const handleTransactionPress = (transaction: Transaction) => {
     lightHaptic();
     router.push(`/(main)/(wallet)/transaction-detail?id=${transaction.id}`);
+  };
+
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
@@ -48,27 +69,38 @@ export default function TransactionsScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.transactionItem}
+        className="flex-row items-center py-3 border-b border-border"
         onPress={() => handleTransactionPress(item)}
         activeOpacity={0.7}
       >
         <Avatar name={name} size="medium" />
-        <View style={styles.transactionInfo}>
-          <Text style={styles.transactionName} numberOfLines={1}>{name}</Text>
-          <Text style={styles.transactionDate}>{formatTransactionDate(item.createdAt)}</Text>
+        <View className="flex-1 ml-3">
+          <Text className="text-body-lg font-inter text-txt-primary" numberOfLines={1}>{name}</Text>
+          <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">{formatTransactionDate(item.created_at)}</Text>
         </View>
-        <Text style={[styles.transactionAmount, isPositive ? styles.positive : styles.negative]}>
+        <Text className={`text-title-md font-inter-medium font-semibold ${
+          isPositive ? 'text-success-main' : 'text-txt-primary'
+        }`}>
           {isPositive ? '+' : '-'}{formatCurrency(item.amount)}
         </Text>
       </TouchableOpacity>
     );
   };
 
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View className="py-4 items-center">
+        <ActivityIndicator color={colors.primary[500]} />
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Transactions" />
 
-      <View style={styles.filterContainer}>
+      <View className="border-b border-border">
         <FlatList
           horizontal
           data={filters}
@@ -77,16 +109,20 @@ export default function TransactionsScreen() {
               label={item.label}
               selected={activeFilter === item.value}
               onPress={() => setActiveFilter(item.value)}
-              style={styles.chip}
+              style={{ marginRight: 8 }}
             />
           )}
           keyExtractor={(item) => item.value}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterList}
+          contentContainerClassName="px-5 py-3 gap-2"
         />
       </View>
 
-      {filteredTransactions.length === 0 ? (
+      {isLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={colors.primary[500]} />
+        </View>
+      ) : allTransactions.length === 0 ? (
         <EmptyState
           type="transactions"
           title="No transactions"
@@ -94,28 +130,16 @@ export default function TransactionsScreen() {
         />
       ) : (
         <FlatList
-          data={filteredTransactions}
+          data={allTransactions}
           renderItem={renderTransaction}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerClassName="px-5 pt-4"
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={renderFooter}
         />
       )}
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  filterContainer: { borderBottomWidth: 1, borderBottomColor: colors.border.default },
-  filterList: { paddingHorizontal: spacing[5], paddingVertical: spacing[3], gap: spacing[2] },
-  chip: { marginRight: spacing[2] },
-  list: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  transactionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], borderBottomWidth: 1, borderBottomColor: colors.border.default },
-  transactionInfo: { flex: 1, marginLeft: spacing[3] },
-  transactionName: { ...typography.bodyLarge, color: colors.text.primary },
-  transactionDate: { ...typography.bodySmall, color: colors.text.tertiary, marginTop: 2 },
-  transactionAmount: { ...typography.titleMedium, fontWeight: '600' },
-  positive: { color: colors.success.main },
-  negative: { color: colors.text.primary },
-});

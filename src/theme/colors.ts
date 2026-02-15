@@ -6,7 +6,7 @@ export const colors = {
     200: '#DDD6FE',
     300: '#C4B5FD',
     400: '#A78BFA',
-    500: '#8B5CF6', // Main accent
+    500: '#8B5CF6',
     600: '#7C3AED',
     700: '#6D28D9',
     800: '#5B21B6',
@@ -15,10 +15,12 @@ export const colors = {
 
   // Backgrounds
   background: {
-    primary: '#0A0A0B',    // Main background
-    secondary: '#121214',   // Cards, elevated surfaces
-    tertiary: '#1A1A1D',    // Input backgrounds
-    elevated: '#1E1E21',    // Modals, bottom sheets
+    primary: '#050506',
+    secondary: '#0F0F12',
+    tertiary: '#18181D',
+    elevated: '#1F1F25',
+    card: '#131316',
+    sheet: '#1A1A20',
   },
 
   // Text
@@ -84,6 +86,16 @@ export const colors = {
     light: 'rgba(255, 255, 255, 0.1)',
     medium: 'rgba(0, 0, 0, 0.5)',
     heavy: 'rgba(0, 0, 0, 0.8)',
+  },
+
+  // Gradients (for LinearGradient props - can't be Tailwind classes)
+  gradients: {
+    primary: ['#7C3AED', '#5B21B6'] as const,
+    balanceCard: ['#7C3AED', '#5B21B6', '#2E1065'] as const,
+    welcome: ['#050506', '#130D1E', '#050506'] as const,
+    success: ['#22C55E', '#16A34A'] as const,
+    glow: ['#8B5CF640', '#8B5CF600'] as const,
+    card: ['#151518', '#0F0F12'] as const,
   },
 } as const;
 

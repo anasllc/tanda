@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Card, Divider } from '../../../src/components/ui';
 import { useUIStore } from '../../../src/stores';
@@ -54,21 +54,24 @@ export default function HelpScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Help & Support" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>How can we help you?</Text>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4">
+        <Text className="text-body-lg font-inter text-txt-secondary mb-6">How can we help you?</Text>
 
-        <Card style={styles.card}>
+        <Card className="p-0 overflow-hidden">
           {helpItems.map((item, index) => (
             <React.Fragment key={item.id}>
-              <TouchableOpacity style={styles.item} onPress={() => handleItemPress(item.id)}>
-                <View style={styles.iconContainer}>
+              <TouchableOpacity className="flex-row items-center p-4" onPress={() => handleItemPress(item.id)}>
+                <View
+                  className="w-11 h-11 rounded-full items-center justify-center mr-4"
+                  style={{ backgroundColor: colors.primary[500] + '15' }}
+                >
                   {getIcon(item.icon)}
                 </View>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemLabel}>{item.label}</Text>
-                  <Text style={styles.itemDescription}>{item.description}</Text>
+                <View className="flex-1">
+                  <Text className="text-body-lg font-inter text-txt-primary">{item.label}</Text>
+                  <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">{item.description}</Text>
                 </View>
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                   <Path d="M9 18L15 12L9 6" stroke={colors.text.tertiary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -82,16 +85,3 @@ export default function HelpScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  subtitle: { ...typography.bodyLarge, color: colors.text.secondary, marginBottom: spacing[6] },
-  card: { padding: 0, overflow: 'hidden' },
-  item: { flexDirection: 'row', alignItems: 'center', padding: spacing[4] },
-  iconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary[500] + '15', alignItems: 'center', justifyContent: 'center', marginRight: spacing[4] },
-  itemInfo: { flex: 1 },
-  itemLabel: { ...typography.bodyLarge, color: colors.text.primary },
-  itemDescription: { ...typography.bodySmall, color: colors.text.tertiary, marginTop: 2 },
-});

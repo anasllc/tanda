@@ -1,110 +1,14 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../../src/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors } from '../../src/theme';
 import { Button } from '../../src/components/ui';
 
 export default function WelcomeScreen() {
   const router = useRouter();
-
-  // Animation values
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(20)).current;
-  const line1Opacity = useRef(new Animated.Value(0)).current;
-  const line1TranslateY = useRef(new Animated.Value(20)).current;
-  const line2Opacity = useRef(new Animated.Value(0)).current;
-  const line2TranslateY = useRef(new Animated.Value(20)).current;
-  const line3Opacity = useRef(new Animated.Value(0)).current;
-  const line3TranslateY = useRef(new Animated.Value(20)).current;
-  const buttonOpacity = useRef(new Animated.Value(0)).current;
-  const buttonTranslateY = useRef(new Animated.Value(30)).current;
-
-  useEffect(() => {
-    // Title animation
-    Animated.parallel([
-      Animated.timing(titleOpacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(titleTranslateY, {
-        toValue: 0,
-        damping: 15,
-        stiffness: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Line 1 animation (delayed)
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(line1Opacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(line1TranslateY, {
-          toValue: 0,
-          damping: 15,
-          stiffness: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, 200);
-
-    // Line 2 animation (delayed)
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(line2Opacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(line2TranslateY, {
-          toValue: 0,
-          damping: 15,
-          stiffness: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, 350);
-
-    // Line 3 animation (delayed)
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(line3Opacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(line3TranslateY, {
-          toValue: 0,
-          damping: 15,
-          stiffness: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, 500);
-
-    // Button animation (delayed)
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(buttonOpacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(buttonTranslateY, {
-          toValue: 0,
-          damping: 15,
-          stiffness: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, 700);
-  }, []);
 
   const handleGetStarted = () => {
     router.push('/(auth)/onboarding');
@@ -112,57 +16,40 @@ export default function WelcomeScreen() {
 
   return (
     <LinearGradient
-      colors={[colors.background.primary, colors.background.secondary]}
-      style={styles.gradient}
+      colors={colors.gradients.welcome}
+      style={{ flex: 1 }}
     >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <View style={styles.textContainer}>
+      <SafeAreaView className="flex-1 px-6">
+        {/* Ambient glow */}
+        <View className="absolute top-1/4 left-1/2 -translate-x-24 w-48 h-48 rounded-full bg-accent-500/10" />
+
+        <View className="flex-1 items-center justify-center">
+          <View className="items-center">
             <Animated.Text
-              style={[
-                styles.title,
-                {
-                  opacity: titleOpacity,
-                  transform: [{ translateY: titleTranslateY }],
-                },
-              ]}
+              entering={FadeInDown.delay(0).duration(600).springify()}
+              className="text-display-lg font-inter-bold text-accent-400 mb-8"
             >
               Tanda
             </Animated.Text>
 
-            <View style={styles.taglines}>
+            <View className="items-center gap-3">
               <Animated.Text
-                style={[
-                  styles.tagline,
-                  {
-                    opacity: line1Opacity,
-                    transform: [{ translateY: line1TranslateY }],
-                  },
-                ]}
+                entering={FadeInDown.delay(200).duration(500).springify()}
+                className="text-headline-sm font-inter-semibold text-txt-secondary text-center"
               >
                 Send money instantly
               </Animated.Text>
 
               <Animated.Text
-                style={[
-                  styles.tagline,
-                  {
-                    opacity: line2Opacity,
-                    transform: [{ translateY: line2TranslateY }],
-                  },
-                ]}
+                entering={FadeInDown.delay(350).duration(500).springify()}
+                className="text-headline-sm font-inter-semibold text-txt-secondary text-center"
               >
                 Receive money seamlessly
               </Animated.Text>
 
               <Animated.Text
-                style={[
-                  styles.tagline,
-                  {
-                    opacity: line3Opacity,
-                    transform: [{ translateY: line3TranslateY }],
-                  },
-                ]}
+                entering={FadeInDown.delay(500).duration(500).springify()}
+                className="text-headline-sm font-inter-semibold text-txt-secondary text-center"
               >
                 Pay for anything
               </Animated.Text>
@@ -171,13 +58,8 @@ export default function WelcomeScreen() {
         </View>
 
         <Animated.View
-          style={[
-            styles.footer,
-            {
-              opacity: buttonOpacity,
-              transform: [{ translateY: buttonTranslateY }],
-            },
-          ]}
+          entering={FadeInDown.delay(700).duration(500).springify()}
+          className="pb-8"
         >
           <Button
             title="Get Started"
@@ -186,58 +68,13 @@ export default function WelcomeScreen() {
             size="large"
           />
 
-          <Text style={styles.terms}>
+          <Text className="text-body-sm font-inter text-txt-tertiary text-center mt-4">
             By continuing, you agree to our{' '}
-            <Text style={styles.link}>Terms of Service</Text> and{' '}
-            <Text style={styles.link}>Privacy Policy</Text>
+            <Text className="text-accent-500">Terms of Service</Text> and{' '}
+            <Text className="text-accent-500">Privacy Policy</Text>
           </Text>
         </Animated.View>
       </SafeAreaView>
     </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing[6],
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textContainer: {
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.displayLarge,
-    color: colors.text.primary,
-    marginBottom: spacing[8],
-    fontWeight: '700',
-  },
-  taglines: {
-    alignItems: 'center',
-    gap: spacing[3],
-  },
-  tagline: {
-    ...typography.headlineSmall,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  footer: {
-    paddingBottom: spacing[8],
-  },
-  terms: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    textAlign: 'center',
-    marginTop: spacing[4],
-  },
-  link: {
-    color: colors.primary[500],
-  },
-});

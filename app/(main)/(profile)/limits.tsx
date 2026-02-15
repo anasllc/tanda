@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import Svg, { Path } from 'react-native-svg';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Card, Badge } from '../../../src/components/ui';
 import { useUIStore, useAuthStore } from '../../../src/stores';
@@ -47,19 +47,19 @@ export default function LimitsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Transaction Limits" />
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        className="flex-1"
+        contentContainerClassName="px-5 pt-4"
         showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.tierCard}>
-          <View style={styles.tierHeader}>
+        <Card className="mb-6">
+          <View className="flex-row justify-between items-start mb-4">
             <View>
-              <Text style={styles.tierLabel}>Current Tier</Text>
-              <Text style={styles.tierValue}>{limits.tier}</Text>
+              <Text className="text-body-sm font-inter text-txt-tertiary mb-0.5">Current Tier</Text>
+              <Text className="text-headline-sm font-inter-semibold text-txt-primary">{limits.tier}</Text>
             </View>
             <Badge
               label={user?.isVerified ? 'Verified' : 'Unverified'}
@@ -68,9 +68,9 @@ export default function LimitsScreen() {
             />
           </View>
 
-          <View style={styles.benefits}>
+          <View className="gap-2 mb-4">
             {tierBenefits[limits.tier as keyof typeof tierBenefits].map((benefit, index) => (
-              <View key={index} style={styles.benefitRow}>
+              <View key={index} className="flex-row items-center gap-2">
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M20 6L9 17L4 12"
@@ -80,37 +80,41 @@ export default function LimitsScreen() {
                     strokeLinejoin="round"
                   />
                 </Svg>
-                <Text style={styles.benefitText}>{benefit}</Text>
+                <Text className="text-body-md font-inter text-txt-secondary">{benefit}</Text>
               </View>
             ))}
           </View>
 
-          <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-            <Text style={styles.upgradeText}>Upgrade Tier</Text>
+          <TouchableOpacity
+            className="items-center py-3 rounded-xl"
+            style={{ backgroundColor: colors.primary[500] + '15' }}
+            onPress={handleUpgrade}
+          >
+            <Text className="text-label-lg font-inter-medium text-accent-500">Upgrade Tier</Text>
           </TouchableOpacity>
         </Card>
 
-        <Text style={styles.sectionTitle}>Daily Limits</Text>
+        <Text className="text-title-md font-inter-medium text-txt-primary mb-3">Daily Limits</Text>
         <Card>
           <LimitRow label="Transfer" amount={limits.daily.transfer} />
           <LimitRow label="Withdrawal" amount={limits.daily.withdrawal} />
           <LimitRow label="Deposit" amount={limits.daily.deposit} isLast />
         </Card>
 
-        <Text style={styles.sectionTitle}>Monthly Limits</Text>
+        <Text className="text-title-md font-inter-medium text-txt-primary mb-3">Monthly Limits</Text>
         <Card>
           <LimitRow label="Transfer" amount={limits.monthly.transfer} />
           <LimitRow label="Withdrawal" amount={limits.monthly.withdrawal} />
           <LimitRow label="Deposit" amount={limits.monthly.deposit} isLast />
         </Card>
 
-        <Text style={styles.sectionTitle}>Per Transaction</Text>
+        <Text className="text-title-md font-inter-medium text-txt-primary mb-3">Per Transaction</Text>
         <Card>
           <LimitRow label="Max Transfer" amount={limits.single.transfer} />
           <LimitRow label="Max Withdrawal" amount={limits.single.withdrawal} isLast />
         </Card>
 
-        <View style={styles.bottomPadding} />
+        <View className="h-8" />
       </ScrollView>
     </SafeAreaView>
   );
@@ -123,89 +127,8 @@ interface LimitRowProps {
 }
 
 const LimitRow: React.FC<LimitRowProps> = ({ label, amount, isLast }) => (
-  <View style={[styles.limitRow, !isLast && styles.limitRowBorder]}>
-    <Text style={styles.limitLabel}>{label}</Text>
-    <Text style={styles.limitAmount}>{formatCurrency(amount)}</Text>
+  <View className={`flex-row justify-between items-center py-3 ${!isLast ? 'border-b border-border' : ''}`}>
+    <Text className="text-body-md font-inter text-txt-secondary">{label}</Text>
+    <Text className="text-title-sm font-inter-medium text-txt-primary">{formatCurrency(amount)}</Text>
   </View>
 );
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-  },
-  tierCard: {
-    marginBottom: spacing[6],
-  },
-  tierHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing[4],
-  },
-  tierLabel: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    marginBottom: 2,
-  },
-  tierValue: {
-    ...typography.headlineSmall,
-    color: colors.text.primary,
-  },
-  benefits: {
-    gap: spacing[2],
-    marginBottom: spacing[4],
-  },
-  benefitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  benefitText: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
-  },
-  upgradeButton: {
-    backgroundColor: colors.primary[500] + '15',
-    paddingVertical: spacing[3],
-    borderRadius: borderRadius.xl,
-    alignItems: 'center',
-  },
-  upgradeText: {
-    ...typography.labelLarge,
-    color: colors.primary[500],
-  },
-  sectionTitle: {
-    ...typography.titleMedium,
-    color: colors.text.primary,
-    marginBottom: spacing[3],
-  },
-  limitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-  },
-  limitRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  limitLabel: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
-  },
-  limitAmount: {
-    ...typography.titleSmall,
-    color: colors.text.primary,
-  },
-  bottomPadding: {
-    height: spacing[8],
-  },
-});

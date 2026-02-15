@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../../src/theme';
+import { colors } from '../../src/theme';
 import { PinInput, Keypad, IconButton } from '../../src/components/ui';
 import Svg, { Path } from 'react-native-svg';
 
@@ -29,8 +29,8 @@ export default function VerifyPinModal() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView className="flex-1 bg-bg-elevated">
+      <View className="items-end px-4 pt-2">
         <IconButton
           icon={<Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M18 6L6 18M6 6L18 18" stroke={colors.text.primary} strokeWidth={2} strokeLinecap="round" /></Svg>}
           onPress={handleClose}
@@ -38,28 +38,26 @@ export default function VerifyPinModal() {
         />
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>Enter your PIN</Text>
-        <Text style={styles.subtitle}>Verify your identity to continue</Text>
+      <View className="flex-1 items-center pt-8">
+        <Text className="text-headline-md font-inter-semibold text-txt-primary mb-2">
+          Enter your PIN
+        </Text>
+        <Text className="text-body-md font-inter text-txt-secondary mb-8">
+          Verify your identity to continue
+        </Text>
 
-        <View style={styles.pinContainer}>
+        <View className="mb-4">
           <PinInput value={pin} onChange={setPin} error={error} />
         </View>
 
-        {error && <Text style={styles.errorText}>Incorrect PIN. Please try again.</Text>}
+        {error && (
+          <Text className="text-body-md font-inter text-error-main">
+            Incorrect PIN. Please try again.
+          </Text>
+        )}
       </View>
 
       <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} showBiometric onBiometric={() => {}} />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.elevated },
-  header: { alignItems: 'flex-end', paddingHorizontal: spacing[4], paddingTop: spacing[2] },
-  content: { flex: 1, alignItems: 'center', paddingTop: spacing[8] },
-  title: { ...typography.headlineMedium, color: colors.text.primary, marginBottom: spacing[2] },
-  subtitle: { ...typography.bodyMedium, color: colors.text.secondary, marginBottom: spacing[8] },
-  pinContainer: { marginBottom: spacing[4] },
-  errorText: { ...typography.bodyMedium, color: colors.error.main },
-});

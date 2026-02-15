@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../../theme';
+import { View, Text, ViewStyle } from 'react-native';
+import { colors } from '../../theme';
 
 export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'default';
 export type BadgeSize = 'small' | 'medium';
@@ -13,6 +13,32 @@ interface BadgeProps {
   icon?: React.ReactNode;
 }
 
+const variantClasses: Record<BadgeVariant, string> = {
+  success: 'bg-success-main/10',
+  warning: 'bg-warning-main/10',
+  error: 'bg-error-main/10',
+  info: 'bg-info-main/10',
+  default: 'bg-bg-tertiary',
+};
+
+const variantTextColors: Record<BadgeVariant, string> = {
+  success: colors.success.main,
+  warning: colors.warning.main,
+  error: colors.error.main,
+  info: colors.info.main,
+  default: colors.text.secondary,
+};
+
+const sizeClasses: Record<BadgeSize, string> = {
+  small: 'px-2 py-0.5',
+  medium: 'px-3 py-1',
+};
+
+const textSizeClasses: Record<BadgeSize, string> = {
+  small: 'text-label-sm',
+  medium: 'text-label-md',
+};
+
 export const Badge: React.FC<BadgeProps> = ({
   label,
   variant = 'default',
@@ -20,79 +46,18 @@ export const Badge: React.FC<BadgeProps> = ({
   style,
   icon,
 }) => {
-  const variantStyle = getVariantStyle(variant);
-  const sizeStyle = getSizeStyle(size);
-
   return (
-    <View style={[styles.base, variantStyle.container, sizeStyle.container, style]}>
-      {icon && <View style={styles.icon}>{icon}</View>}
-      <Text style={[styles.text, sizeStyle.text, { color: variantStyle.textColor }]}>
+    <View
+      className={`flex-row items-center rounded-full self-start ${variantClasses[variant]} ${sizeClasses[size]}`}
+      style={style}
+    >
+      {icon && <View className="mr-1">{icon}</View>}
+      <Text
+        className={`${textSizeClasses[size]} font-inter-semibold`}
+        style={{ color: variantTextColors[variant] }}
+      >
         {label}
       </Text>
     </View>
   );
 };
-
-const getVariantStyle = (variant: BadgeVariant) => {
-  const styles: Record<BadgeVariant, { container: ViewStyle; textColor: string }> = {
-    success: {
-      container: { backgroundColor: colors.success.background },
-      textColor: colors.success.main,
-    },
-    warning: {
-      container: { backgroundColor: colors.warning.background },
-      textColor: colors.warning.main,
-    },
-    error: {
-      container: { backgroundColor: colors.error.background },
-      textColor: colors.error.main,
-    },
-    info: {
-      container: { backgroundColor: colors.info.background },
-      textColor: colors.info.main,
-    },
-    default: {
-      container: { backgroundColor: colors.background.tertiary },
-      textColor: colors.text.secondary,
-    },
-  };
-
-  return styles[variant];
-};
-
-const getSizeStyle = (size: BadgeSize) => {
-  const styles: Record<BadgeSize, { container: ViewStyle; text: { fontSize: number } }> = {
-    small: {
-      container: {
-        paddingHorizontal: spacing[2],
-        paddingVertical: spacing[0.5],
-      },
-      text: { fontSize: 10 },
-    },
-    medium: {
-      container: {
-        paddingHorizontal: spacing[3],
-        paddingVertical: spacing[1],
-      },
-      text: { fontSize: 12 },
-    },
-  };
-
-  return styles[size];
-};
-
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: borderRadius.full,
-    alignSelf: 'flex-start',
-  },
-  icon: {
-    marginRight: spacing[1],
-  },
-  text: {
-    ...typography.labelMedium,
-    fontWeight: '600',
-  },
-});

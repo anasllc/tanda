@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Input, Button, Card, Avatar, Chip } from '../../../src/components/ui';
-import { contacts } from '../../../src/mock/contacts';
+import { useFriends, Friend } from '../../../src/hooks/useFriends';
+import { useCreatePool } from '../../../src/hooks/usePools';
 import Svg, { Path } from 'react-native-svg';
 
 export default function PoolCreateScreen() {
@@ -16,7 +17,10 @@ export default function PoolCreateScreen() {
   const [deadline, setDeadline] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
 
-  const registeredContacts = contacts.filter(c => c.isRegistered);
+  const { data: friendsData, isLoading: loadingFriends } = useFriends('accepted');
+  const friends = friendsData?.friends ?? [];
+
+  const createPool = useCreatePool();
 
   const toggleContact = (id: string) => {
     setSelectedContacts(prev =>
@@ -24,14 +28,25 @@ export default function PoolCreateScreen() {
     );
   };
 
-  const handleCreate = () => {
-    router.push('/(main)/(services)/pool-detail');
+  const handleCreate = async () => {
+    try {
+      await createPool.mutateAsync({
+        title,
+        description: description || undefined,
+        target_amount_usdc: parseFloat(targetAmount),
+        deadline: deadline || undefined,
+        members: selectedContacts.map(id => ({ user_id: id })),
+      });
+      router.push('/(main)/(services)/pool-detail');
+    } catch (error) {
+      // Error handling is done by the mutation
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Create Pool" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-6 gap-5">
         <Input
           label="Pool Name"
           value={title}
@@ -54,7 +69,7 @@ export default function PoolCreateScreen() {
           onChangeText={setTargetAmount}
           placeholder="0.00"
           keyboardType="decimal-pad"
-          leftIcon={<Text style={styles.currencyIcon}>$</Text>}
+          leftIcon={<Text className="text-body-lg font-inter text-txt-secondary">$</Text>}
         />
 
         <Input
@@ -64,83 +79,66 @@ export default function PoolCreateScreen() {
           placeholder="e.g., Dec 25, 2024"
         />
 
-        <View style={styles.inviteSection}>
-          <Text style={styles.sectionTitle}>Invite Contributors</Text>
-          <Text style={styles.sectionSubtitle}>Select people to invite to this pool</Text>
+        <View>
+          <Text className="text-title-sm font-inter-medium text-txt-primary mb-1">Invite Contributors</Text>
+          <Text className="text-body-sm font-inter text-txt-tertiary mb-3">Select people to invite to this pool</Text>
 
-          <View style={styles.contactsList}>
-            {registeredContacts.slice(0, 8).map(contact => (
-              <TouchableOpacity
-                key={contact.id}
-                style={[styles.contactItem, selectedContacts.includes(contact.id) && styles.contactItemSelected]}
-                onPress={() => toggleContact(contact.id)}
-              >
-                <Avatar name={contact.name} size="sm" />
-                <Text style={styles.contactName} numberOfLines={1}>{contact.name.split(' ')[0]}</Text>
-                {selectedContacts.includes(contact.id) && (
-                  <View style={styles.checkMark}>
-                    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                      <Path d="M20 6L9 17l-5-5" stroke={colors.text.inverse} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+          {loadingFriends ? (
+            <View className="py-4 items-center">
+              <ActivityIndicator size="small" />
+            </View>
+          ) : (
+            <View className="flex-row flex-wrap gap-3">
+              {friends.slice(0, 8).map((friend: Friend) => (
+                <TouchableOpacity
+                  key={friend.id}
+                  className={`items-center p-3 rounded-lg w-[80px] relative ${
+                    selectedContacts.includes(friend.id)
+                      ? 'border border-accent-500'
+                      : 'bg-bg-secondary'
+                  }`}
+                  style={selectedContacts.includes(friend.id) ? { backgroundColor: colors.primary[500] + '30' } : undefined}
+                  onPress={() => toggleContact(friend.id)}
+                >
+                  <Avatar name={friend.display_name} source={friend.avatar_url} size="small" />
+                  <Text className="text-label-sm font-inter-medium text-txt-secondary mt-2" numberOfLines={1}>{friend.display_name.split(' ')[0]}</Text>
+                  {selectedContacts.includes(friend.id) && (
+                    <View className="absolute top-1 right-1 w-[18px] h-[18px] rounded-full bg-accent-500 items-center justify-center">
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                        <Path d="M20 6L9 17l-5-5" stroke={colors.text.inverse} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {targetAmount && (
-          <Card style={styles.previewCard}>
-            <View style={styles.previewIcon}>
+          <Card className="items-center py-6">
+            <View className="mb-3">
               <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
                 <Path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke={colors.primary[400]} strokeWidth={1.5} strokeLinecap="round" />
                 <Path d="M9 11a4 4 0 100-8 4 4 0 000 8z" stroke={colors.primary[400]} strokeWidth={1.5} />
                 <Path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke={colors.primary[400]} strokeWidth={1.5} strokeLinecap="round" />
               </Svg>
             </View>
-            <Text style={styles.previewTitle}>{title || 'Pool Name'}</Text>
-            <Text style={styles.previewAmount}>Target: ${targetAmount}</Text>
-            <Text style={styles.previewInvites}>{selectedContacts.length} people invited</Text>
+            <Text className="text-title-md font-inter-medium text-txt-primary mb-1">{title || 'Pool Name'}</Text>
+            <Text className="text-body-md font-inter text-accent-400 mb-1">Target: ${targetAmount}</Text>
+            <Text className="text-body-sm font-inter text-txt-tertiary">{selectedContacts.length} people invited</Text>
           </Card>
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View className="px-5 pb-6">
         <Button
-          title="Create Pool"
+          title={createPool.isPending ? "Creating..." : "Create Pool"}
           onPress={handleCreate}
           fullWidth
-          disabled={!title || !targetAmount}
+          disabled={!title || !targetAmount || createPool.isPending}
         />
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[6], gap: spacing[5] },
-  currencyIcon: { ...typography.bodyLarge, color: colors.text.secondary },
-  inviteSection: { },
-  sectionTitle: { ...typography.titleSmall, color: colors.text.primary, marginBottom: spacing[1] },
-  sectionSubtitle: { ...typography.bodySmall, color: colors.text.tertiary, marginBottom: spacing[3] },
-  contactsList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
-  contactItem: {
-    alignItems: 'center',
-    padding: spacing[3],
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    width: 80,
-    position: 'relative',
-  },
-  contactItemSelected: { backgroundColor: colors.primary[500] + '30', borderWidth: 1, borderColor: colors.primary[500] },
-  contactName: { ...typography.labelSmall, color: colors.text.secondary, marginTop: spacing[2] },
-  checkMark: { position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.primary[500], alignItems: 'center', justifyContent: 'center' },
-  previewCard: { alignItems: 'center', paddingVertical: spacing[6] },
-  previewIcon: { marginBottom: spacing[3] },
-  previewTitle: { ...typography.titleMedium, color: colors.text.primary, marginBottom: spacing[1] },
-  previewAmount: { ...typography.bodyMedium, color: colors.primary[400], marginBottom: spacing[1] },
-  previewInvites: { ...typography.bodySmall, color: colors.text.tertiary },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[6] },
-});

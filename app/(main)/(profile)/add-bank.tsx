@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Input, Button, Card, SearchBar } from '../../../src/components/ui';
 import { banks } from '../../../src/mock/bankAccounts';
 import { useUIStore } from '../../../src/stores';
 import { lightHaptic } from '../../../src/utils/haptics';
+import { useAddBankAccount } from '../../../src/hooks/useBankAccounts';
 import Svg, { Path } from 'react-native-svg';
 
 export default function AddBankScreen() {
   const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
+  const addBankAccount = useAddBankAccount();
   const [selectedBank, setSelectedBank] = useState<typeof banks[0] | null>(null);
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
@@ -36,20 +38,33 @@ export default function AddBankScreen() {
     }, 1500);
   };
 
-  const handleAddBank = () => {
+  const handleAddBank = async () => {
+    if (!selectedBank) return;
     lightHaptic();
-    showToast({ type: 'success', title: 'Bank account added successfully' });
-    router.back();
+    try {
+      await addBankAccount.mutateAsync({
+        bankCode: selectedBank.code,
+        accountNumber,
+        bankName: selectedBank.name,
+      });
+      showToast({ type: 'success', title: 'Bank account added successfully' });
+      router.back();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed to add bank', message: err.message });
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Add Bank Account" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.bankSelector} onPress={() => setShowBankPicker(true)}>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 gap-4">
+        <TouchableOpacity
+          className="flex-row justify-between items-center bg-bg-secondary rounded-lg p-4 border border-border"
+          onPress={() => setShowBankPicker(true)}
+        >
           <View>
-            <Text style={styles.label}>Bank</Text>
-            <Text style={[styles.bankName, !selectedBank && styles.placeholder]}>
+            <Text className="text-label-sm font-inter-medium text-txt-tertiary mb-1">Bank</Text>
+            <Text className={`text-body-lg font-inter ${selectedBank ? 'text-txt-primary' : 'text-txt-tertiary'}`}>
               {selectedBank ? selectedBank.name : 'Select a bank'}
             </Text>
           </View>
@@ -82,44 +97,48 @@ export default function AddBankScreen() {
         )}
 
         {verified && (
-          <Card style={styles.verifiedCard}>
-            <View style={styles.verifiedRow}>
-              <View style={styles.checkIcon}>
+          <Card style={{ backgroundColor: colors.success.main + '15' }}>
+            <View className="flex-row items-center gap-3">
+              <View
+                className="w-8 h-8 rounded-full items-center justify-center"
+                style={{ backgroundColor: colors.success.main + '20' }}
+              >
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                   <Path d="M20 6L9 17l-5-5" stroke={colors.success.main} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </View>
               <View>
-                <Text style={styles.verifiedLabel}>Account Verified</Text>
-                <Text style={styles.accountName}>{accountName}</Text>
+                <Text className="text-label-md font-inter-medium" style={{ color: colors.success.main }}>Account Verified</Text>
+                <Text className="text-body-lg font-inter text-txt-primary">{accountName}</Text>
               </View>
             </View>
           </Card>
         )}
 
-        <View style={styles.infoSection}>
+        <View className="flex-row items-start gap-3 pt-4">
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={colors.text.tertiary} strokeWidth={1.5} />
           </Svg>
-          <Text style={styles.infoText}>
+          <Text className="flex-1 text-body-sm font-inter text-txt-tertiary">
             Your bank account information is encrypted and stored securely. We only use it for withdrawals.
           </Text>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View className="px-5 pb-6">
         <Button
           title="Add Bank Account"
           onPress={handleAddBank}
           fullWidth
           disabled={!verified}
+          loading={addBankAccount.isPending}
         />
       </View>
 
       <Modal visible={showBankPicker} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Bank</Text>
+        <SafeAreaView className="flex-1 bg-bg-elevated">
+          <View className="flex-row justify-between items-center px-5 py-4">
+            <Text className="text-title-lg font-inter-semibold text-txt-primary">Select Bank</Text>
             <TouchableOpacity onPress={() => setShowBankPicker(false)}>
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Path d="M18 6L6 18M6 6l12 12" stroke={colors.text.primary} strokeWidth={2} strokeLinecap="round" />
@@ -127,18 +146,18 @@ export default function AddBankScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalContent}>
+          <View className="flex-1 px-5">
             <SearchBar
               placeholder="Search banks"
               value={bankSearch}
               onChangeText={setBankSearch}
             />
 
-            <ScrollView style={styles.bankList}>
+            <ScrollView className="mt-4">
               {filteredBanks.map(bank => (
                 <TouchableOpacity
                   key={bank.code}
-                  style={styles.bankItem}
+                  className="flex-row justify-between items-center py-4 border-b border-border-light"
                   onPress={() => {
                     setSelectedBank(bank);
                     setShowBankPicker(false);
@@ -146,7 +165,7 @@ export default function AddBankScreen() {
                     setAccountName('');
                   }}
                 >
-                  <Text style={styles.bankItemName}>{bank.name}</Text>
+                  <Text className="text-body-lg font-inter text-txt-primary">{bank.name}</Text>
                   {selectedBank?.code === bank.code && (
                     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                       <Path d="M20 6L9 17l-5-5" stroke={colors.primary[400]} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -161,37 +180,3 @@ export default function AddBankScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], gap: spacing[4] },
-  label: { ...typography.labelSmall, color: colors.text.tertiary, marginBottom: 4 },
-  bankSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing[4],
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  bankName: { ...typography.bodyLarge, color: colors.text.primary },
-  placeholder: { color: colors.text.tertiary },
-  verifiedCard: { backgroundColor: colors.success.main + '15' },
-  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  checkIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.success.main + '20', alignItems: 'center', justifyContent: 'center' },
-  verifiedLabel: { ...typography.labelMedium, color: colors.success.main },
-  accountName: { ...typography.bodyLarge, color: colors.text.primary },
-  infoSection: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3], paddingTop: spacing[4] },
-  infoText: { flex: 1, ...typography.bodySmall, color: colors.text.tertiary },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[6] },
-  modalContainer: { flex: 1, backgroundColor: colors.background.elevated },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
-  modalTitle: { ...typography.titleLarge, color: colors.text.primary },
-  modalContent: { flex: 1, paddingHorizontal: spacing[5] },
-  bankList: { marginTop: spacing[4] },
-  bankItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing[4], borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
-  bankItemName: { ...typography.bodyLarge, color: colors.text.primary },
-});

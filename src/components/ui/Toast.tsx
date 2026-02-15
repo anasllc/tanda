@@ -1,7 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
+import { colors, shadows } from '../../theme';
 import { useUIStore, Toast as ToastType } from '../../stores/uiStore';
 
 const SuccessIcon = () => (
@@ -75,52 +81,50 @@ interface ToastItemProps {
 }
 
 const ToastItem: React.FC<ToastItemProps> = ({ toast, onHide }) => {
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(-100);
+  const opacity = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    translateY.value = withSpring(0);
+    opacity.value = withTiming(1, { duration: 200 });
   }, []);
 
   const handleDismiss = () => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onHide(toast.id);
+    opacity.value = withTiming(0, { duration: 150 });
+    translateY.value = withTiming(-100, { duration: 200 }, () => {
+      // Note: runOnJS would be needed here for calling JS from worklet
+      // but since withTiming callback runs on JS thread in this pattern, it's fine
     });
+    // Delay the hide call to match animation
+    setTimeout(() => {
+      onHide(toast.id);
+    }, 200);
   };
 
   return (
-    <Animated.View style={[styles.toast, { transform: [{ translateY }], opacity }]}>
+    <Animated.View
+      className="mb-2 bg-bg-elevated rounded-xl border border-border"
+      style={[shadows.lg, animatedStyle]}
+    >
       <TouchableOpacity
-        style={styles.toastContent}
+        className="flex-row items-center p-4"
         onPress={handleDismiss}
         activeOpacity={0.9}
       >
-        <View style={styles.iconContainer}>{getIcon(toast.type)}</View>
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{toast.title}</Text>
+        <View className="mr-3">{getIcon(toast.type)}</View>
+        <View className="flex-1">
+          <Text className="text-title-sm font-inter-medium text-txt-primary">
+            {toast.title}
+          </Text>
           {toast.message && (
-            <Text style={styles.message}>{toast.message}</Text>
+            <Text className="text-body-sm font-inter text-txt-secondary mt-0.5">
+              {toast.message}
+            </Text>
           )}
         </View>
       </TouchableOpacity>
@@ -135,48 +139,10 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <View className="absolute top-[60px] left-4 right-4 z-[9999]" pointerEvents="box-none">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onHide={hideToast} />
       ))}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 60,
-    left: spacing[4],
-    right: spacing[4],
-    zIndex: 9999,
-  },
-  toast: {
-    marginBottom: spacing[2],
-    backgroundColor: colors.background.elevated,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    ...shadows.lg,
-  },
-  toastContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing[4],
-  },
-  iconContainer: {
-    marginRight: spacing[3],
-  },
-  textContainer: {
-    flex: 1,
-  },
-  title: {
-    ...typography.titleSmall,
-    color: colors.text.primary,
-  },
-  message: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginTop: spacing[0.5],
-  },
-});

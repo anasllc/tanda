@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Input, Button, Card, Avatar, Chip } from '../../../src/components/ui';
-import { contacts } from '../../../src/mock/contacts';
+import { useFriends } from '../../../src/hooks/useFriends';
+import { useCreateSplit } from '../../../src/hooks/useBillSplits';
+import { useUIStore } from '../../../src/stores';
 import Svg, { Path } from 'react-native-svg';
 
 export default function BillSplitScreen() {
   const router = useRouter();
+  const showToast = useUIStore((state) => state.showToast);
+  const { data: friendsData, isLoading: loadingFriends } = useFriends('accepted');
+  const createSplit = useCreateSplit();
+  const friends = friendsData?.friends ?? [];
+
   const [title, setTitle] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
-
-  const registeredContacts = contacts.filter(c => c.isRegistered);
 
   const toggleContact = (id: string) => {
     setSelectedContacts(prev =>
@@ -27,14 +32,25 @@ export default function BillSplitScreen() {
     ? (parseFloat(totalAmount) / (selectedContacts.length + 1)).toFixed(2)
     : '0.00';
 
-  const handleCreate = () => {
-    router.push('/(main)/(services)/bill-split-detail');
+  const handleCreate = async () => {
+    try {
+      await createSplit.mutateAsync({
+        title,
+        total_amount_usdc: parseFloat(totalAmount),
+        split_type: splitType,
+        participants: selectedContacts.map(id => ({ user_id: id })),
+      });
+      showToast({ type: 'success', title: 'Bill split created!' });
+      router.push('/(main)/(services)/bill-split-detail');
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed to create split', message: err.message });
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Split a Bill" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-6 gap-5">
         <Input
           label="What's the bill for?"
           value={title}
@@ -48,12 +64,12 @@ export default function BillSplitScreen() {
           onChangeText={setTotalAmount}
           placeholder="0.00"
           keyboardType="decimal-pad"
-          leftIcon={<Text style={styles.currencyIcon}>$</Text>}
+          leftIcon={<Text className="text-body-lg font-inter text-txt-secondary">$</Text>}
         />
 
-        <View style={styles.splitTypeSection}>
-          <Text style={styles.sectionTitle}>Split Type</Text>
-          <View style={styles.splitTypeRow}>
+        <View>
+          <Text className="text-title-sm font-inter-medium text-txt-primary mb-3">Split Type</Text>
+          <View className="flex-row gap-3">
             <Chip
               label="Split Equally"
               selected={splitType === 'equal'}
@@ -67,89 +83,69 @@ export default function BillSplitScreen() {
           </View>
         </View>
 
-        <View style={styles.contactsSection}>
-          <Text style={styles.sectionTitle}>Split With</Text>
-          <View style={styles.contactsList}>
-            {registeredContacts.slice(0, 8).map(contact => (
-              <TouchableOpacity
-                key={contact.id}
-                style={[styles.contactItem, selectedContacts.includes(contact.id) && styles.contactItemSelected]}
-                onPress={() => toggleContact(contact.id)}
-              >
-                <Avatar name={contact.name} size="sm" />
-                <Text style={styles.contactName} numberOfLines={1}>{contact.name.split(' ')[0]}</Text>
-                {selectedContacts.includes(contact.id) && (
-                  <View style={styles.checkMark}>
-                    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                      <Path d="M20 6L9 17l-5-5" stroke={colors.text.inverse} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+        <View>
+          <Text className="text-title-sm font-inter-medium text-txt-primary mb-3">Split With</Text>
+          {loadingFriends ? (
+            <View className="items-center py-6">
+              <ActivityIndicator size="small" color={colors.primary[500]} />
+            </View>
+          ) : (
+            <View className="flex-row flex-wrap gap-3">
+              {friends.slice(0, 8).map(friend => (
+                <TouchableOpacity
+                  key={friend.id}
+                  className={`items-center p-3 rounded-lg w-[80px] relative ${
+                    selectedContacts.includes(friend.id)
+                      ? 'border border-accent-500'
+                      : 'bg-bg-secondary'
+                  }`}
+                  style={selectedContacts.includes(friend.id) ? { backgroundColor: colors.primary[500] + '30' } : undefined}
+                  onPress={() => toggleContact(friend.id)}
+                >
+                  <Avatar name={friend.display_name} size="small" />
+                  <Text className="text-label-sm font-inter-medium text-txt-secondary mt-2" numberOfLines={1}>{friend.display_name.split(' ')[0]}</Text>
+                  {selectedContacts.includes(friend.id) && (
+                    <View className="absolute top-1 right-1 w-[18px] h-[18px] rounded-full bg-accent-500 items-center justify-center">
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                        <Path d="M20 6L9 17l-5-5" stroke={colors.text.inverse} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {selectedContacts.length > 0 && totalAmount && (
-          <Card style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Split Summary</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total</Text>
-              <Text style={styles.summaryValue}>${totalAmount}</Text>
+          <Card>
+            <Text className="text-title-sm font-inter-medium text-txt-primary mb-3">Split Summary</Text>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-body-md font-inter text-txt-secondary">Total</Text>
+              <Text className="text-body-md font-inter text-txt-primary">${totalAmount}</Text>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>People</Text>
-              <Text style={styles.summaryValue}>{selectedContacts.length + 1} (including you)</Text>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-body-md font-inter text-txt-secondary">People</Text>
+              <Text className="text-body-md font-inter text-txt-primary">{selectedContacts.length + 1} (including you)</Text>
             </View>
-            <View style={styles.divider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabelBold}>Per Person</Text>
-              <Text style={styles.summaryValueBold}>${perPersonAmount}</Text>
+            <View className="h-px bg-border-light my-3" />
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-title-sm font-inter-medium text-txt-primary">Per Person</Text>
+              <Text className="text-title-sm font-inter-medium text-accent-400">${perPersonAmount}</Text>
             </View>
           </Card>
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View className="px-5 pb-6">
         <Button
           title="Create Split"
           onPress={handleCreate}
           fullWidth
           disabled={!title || !totalAmount || selectedContacts.length === 0}
+          loading={createSplit.isPending}
         />
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[6], gap: spacing[5] },
-  currencyIcon: { ...typography.bodyLarge, color: colors.text.secondary },
-  splitTypeSection: { },
-  sectionTitle: { ...typography.titleSmall, color: colors.text.primary, marginBottom: spacing[3] },
-  splitTypeRow: { flexDirection: 'row', gap: spacing[3] },
-  contactsSection: { },
-  contactsList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
-  contactItem: {
-    alignItems: 'center',
-    padding: spacing[3],
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
-    width: 80,
-    position: 'relative',
-  },
-  contactItemSelected: { backgroundColor: colors.primary[500] + '30', borderWidth: 1, borderColor: colors.primary[500] },
-  contactName: { ...typography.labelSmall, color: colors.text.secondary, marginTop: spacing[2] },
-  checkMark: { position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.primary[500], alignItems: 'center', justifyContent: 'center' },
-  summaryCard: { },
-  summaryTitle: { ...typography.titleSmall, color: colors.text.primary, marginBottom: spacing[3] },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[2] },
-  summaryLabel: { ...typography.bodyMedium, color: colors.text.secondary },
-  summaryValue: { ...typography.bodyMedium, color: colors.text.primary },
-  summaryLabelBold: { ...typography.titleSmall, color: colors.text.primary },
-  summaryValueBold: { ...typography.titleSmall, color: colors.primary[400] },
-  divider: { height: 1, backgroundColor: colors.border.subtle, marginVertical: spacing[3] },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[6] },
-});

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { colors, typography, spacing } from '../../theme';
+import { colors } from '../../theme';
 import { Button } from './Button';
 
 type EmptyStateType =
@@ -116,13 +116,17 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   style,
 }) => {
   return (
-    <View style={[styles.container, style]}>
+    <View className="items-center justify-center p-8" style={style}>
       {getIllustration(type)}
 
-      <Text style={styles.title}>{title}</Text>
+      <Text className="text-title-lg font-inter-semibold text-txt-primary mt-6 text-center">
+        {title}
+      </Text>
 
       {description && (
-        <Text style={styles.description}>{description}</Text>
+        <Text className="text-body-md font-inter text-txt-secondary mt-2 text-center max-w-[280px]">
+          {description}
+        </Text>
       )}
 
       {actionLabel && onAction && (
@@ -131,34 +135,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           onPress={onAction}
           variant="primary"
           size="medium"
-          style={styles.button}
+          style={{ marginTop: 24, minWidth: 160 }}
         />
       )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing[8],
-  },
-  title: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
-    marginTop: spacing[6],
-    textAlign: 'center',
-  },
-  description: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
-    marginTop: spacing[2],
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-  button: {
-    marginTop: spacing[6],
-    minWidth: 160,
-  },
-});

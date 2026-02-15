@@ -1,15 +1,17 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   TouchableOpacity,
   Text,
-  StyleSheet,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
   TouchableOpacityProps,
-  Animated,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius, layout } from '../../theme';
+import Animated from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors } from '../../theme';
+import { shadows } from '../../theme';
+import { usePressAnimation } from '../../hooks/useAnimations';
 import { mediumHaptic } from '../../utils/haptics';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -29,6 +31,18 @@ interface ButtonProps extends Omit<TouchableOpacityProps, 'style'> {
   haptic?: boolean;
 }
 
+const sizeClasses: Record<ButtonSize, string> = {
+  small: 'h-11 px-4',
+  medium: 'h-14 px-6',
+  large: 'h-16 px-8',
+};
+
+const textSizeClasses: Record<ButtonSize, string> = {
+  small: 'text-label-lg font-inter-medium',
+  medium: 'text-title-md font-inter-medium',
+  large: 'text-title-lg font-inter-semibold',
+};
+
 export const Button: React.FC<ButtonProps> = ({
   title,
   variant = 'primary',
@@ -44,66 +58,86 @@ export const Button: React.FC<ButtonProps> = ({
   onPress,
   ...props
 }) => {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.97,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-  };
+  const { animatedStyle, onPressIn, onPressOut } = usePressAnimation(0.97);
+  const isDisabled = disabled || loading;
 
   const handlePress = (e: any) => {
     if (haptic) mediumHaptic();
     onPress?.(e);
   };
 
-  const isDisabled = disabled || loading;
+  const textColor = getTextColor(variant, isDisabled);
 
-  const variantStyles = getVariantStyles(variant, isDisabled);
-  const sizeStyles = getSizeStyles(size);
+  if (variant === 'primary' && !isDisabled) {
+    return (
+      <Animated.View style={[animatedStyle, fullWidth && { width: '100%' }, shadows.buttonGlow]}>
+        <TouchableOpacity
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          onPress={handlePress}
+          disabled={isDisabled}
+          activeOpacity={0.9}
+          {...props}
+        >
+          <LinearGradient
+            colors={colors.gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 12,
+              },
+              size === 'small' && { height: 44, paddingHorizontal: 16 },
+              size === 'medium' && { height: 56, paddingHorizontal: 24 },
+              size === 'large' && { height: 64, paddingHorizontal: 32 },
+              style,
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color={textColor} size="small" />
+            ) : (
+              <>
+                {leftIcon}
+                <Text
+                  className={`${textSizeClasses[size]} ${leftIcon ? 'ml-2' : ''} ${rightIcon ? 'mr-2' : ''}`}
+                  style={[{ color: textColor }, textStyle]}
+                >
+                  {title}
+                </Text>
+                {rightIcon}
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
+  const variantClasses = getVariantClasses(variant, isDisabled);
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={[animatedStyle, fullWidth && { width: '100%' }]}>
       <TouchableOpacity
-        style={[
-          styles.base,
-          variantStyles.container,
-          sizeStyles.container,
-          fullWidth && styles.fullWidth,
-          style,
-        ]}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        className={`flex-row items-center justify-center rounded-xl ${sizeClasses[size]} ${variantClasses}`}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
         onPress={handlePress}
         disabled={isDisabled}
         activeOpacity={0.9}
+        style={style}
         {...props}
       >
         {loading ? (
-          <ActivityIndicator
-            color={variantStyles.textColor}
-            size={size === 'small' ? 'small' : 'small'}
-          />
+          <ActivityIndicator color={textColor} size="small" />
         ) : (
           <>
             {leftIcon}
             <Text
-              style={[
-                styles.text,
-                sizeStyles.text,
-                { color: variantStyles.textColor },
-                leftIcon && { marginLeft: spacing[2] },
-                rightIcon && { marginRight: spacing[2] },
-                textStyle,
-              ]}
+              className={`${textSizeClasses[size]} ${leftIcon ? 'ml-2' : ''} ${rightIcon ? 'mr-2' : ''}`}
+              style={[{ color: textColor }, textStyle]}
             >
               {title}
             </Text>
@@ -115,84 +149,25 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const getVariantStyles = (variant: ButtonVariant, disabled: boolean) => {
-  const styles: Record<ButtonVariant, { container: ViewStyle; textColor: string }> = {
-    primary: {
-      container: {
-        backgroundColor: disabled ? colors.primary[800] : colors.primary[500],
-      },
-      textColor: disabled ? colors.text.tertiary : colors.text.primary,
-    },
-    secondary: {
-      container: {
-        backgroundColor: colors.background.tertiary,
-        borderWidth: 1,
-        borderColor: colors.border.default,
-      },
-      textColor: disabled ? colors.text.tertiary : colors.text.primary,
-    },
-    ghost: {
-      container: {
-        backgroundColor: 'transparent',
-      },
-      textColor: disabled ? colors.text.tertiary : colors.primary[500],
-    },
-    danger: {
-      container: {
-        backgroundColor: disabled ? colors.error.dark : colors.error.main,
-      },
-      textColor: disabled ? colors.text.tertiary : colors.text.primary,
-    },
-  };
+function getVariantClasses(variant: ButtonVariant, disabled: boolean): string {
+  switch (variant) {
+    case 'primary':
+      return disabled ? 'bg-accent-800' : 'bg-accent-500';
+    case 'secondary':
+      return 'bg-bg-tertiary border border-border';
+    case 'ghost':
+      return 'bg-transparent';
+    case 'danger':
+      return disabled ? 'bg-error-dark' : 'bg-error-main';
+  }
+}
 
-  return styles[variant];
-};
-
-const getSizeStyles = (size: ButtonSize) => {
-  const styles: Record<ButtonSize, { container: ViewStyle; text: TextStyle }> = {
-    small: {
-      container: {
-        height: layout.buttonHeightSmall,
-        paddingHorizontal: spacing[4],
-      },
-      text: {
-        ...typography.labelLarge,
-      },
-    },
-    medium: {
-      container: {
-        height: layout.buttonHeight,
-        paddingHorizontal: spacing[6],
-      },
-      text: {
-        ...typography.titleMedium,
-      },
-    },
-    large: {
-      container: {
-        height: 64,
-        paddingHorizontal: spacing[8],
-      },
-      text: {
-        ...typography.titleLarge,
-      },
-    },
-  };
-
-  return styles[size];
-};
-
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.xl,
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  text: {
-    fontWeight: '600',
-  },
-});
+function getTextColor(variant: ButtonVariant, disabled: boolean): string {
+  if (disabled) return colors.text.tertiary;
+  switch (variant) {
+    case 'primary': return colors.text.primary;
+    case 'secondary': return colors.text.primary;
+    case 'ghost': return colors.primary[500];
+    case 'danger': return colors.text.primary;
+  }
+}

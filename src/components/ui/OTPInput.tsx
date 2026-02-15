@@ -3,11 +3,15 @@ import {
   View,
   TextInput,
   Text,
-  StyleSheet,
   Pressable,
-  Animated,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../../theme';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { colors } from '../../theme';
 import { keypadHaptic, errorHaptic } from '../../utils/haptics';
 
 interface OTPInputProps {
@@ -31,7 +35,7 @@ export const OTPInput: React.FC<OTPInputProps> = ({
 }) => {
   const inputRef = useRef<TextInput>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const shakeX = useSharedValue(0);
   const hasCalledComplete = useRef(false);
   const onCompleteRef = useRef(onComplete);
 
@@ -40,16 +44,20 @@ export const OTPInput: React.FC<OTPInputProps> = ({
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeX.value }],
+  }));
+
   useEffect(() => {
     if (error) {
       errorHaptic();
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]).start();
+      shakeX.value = withSequence(
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(0, { duration: 50 })
+      );
     }
   }, [error]);
 
@@ -84,7 +92,7 @@ export const OTPInput: React.FC<OTPInputProps> = ({
     <Pressable onPress={handlePress}>
       <TextInput
         ref={inputRef}
-        style={styles.hiddenInput}
+        className="absolute w-px h-px opacity-0"
         value={value}
         onChangeText={handleChange}
         keyboardType="number-pad"
@@ -95,7 +103,7 @@ export const OTPInput: React.FC<OTPInputProps> = ({
         onBlur={() => setIsFocused(false)}
       />
 
-      <Animated.View style={[styles.container, { transform: [{ translateX: shakeAnim }] }]}>
+      <Animated.View className="flex-row justify-center gap-3" style={animatedStyle}>
         {Array.from({ length }).map((_, index) => {
           const char = value[index];
           const isActive = index === value.length && isFocused;
@@ -104,17 +112,19 @@ export const OTPInput: React.FC<OTPInputProps> = ({
           return (
             <View
               key={index}
-              style={[
-                styles.cell,
-                isActive && styles.cellActive,
-                isFilled && styles.cellFilled,
-                error && styles.cellError,
-              ]}
+              className={`w-12 h-14 rounded-lg border items-center justify-center
+                ${error ? 'border-error-main' : ''}
+                ${isActive && !error ? 'border-2 border-accent-500' : ''}
+                ${isFilled && !error && !isActive ? 'bg-bg-secondary border-border-light' : ''}
+                ${!isFilled && !isActive && !error ? 'bg-bg-tertiary border-border' : ''}
+              `}
             >
-              <Text style={styles.cellText}>
+              <Text className="text-headline-md font-inter-semibold text-txt-primary">
                 {char || ''}
               </Text>
-              {isActive && <View style={styles.cursor} />}
+              {isActive && (
+                <View className="absolute w-0.5 h-6 bg-accent-500" />
+              )}
             </View>
           );
         })}
@@ -122,48 +132,3 @@ export const OTPInput: React.FC<OTPInputProps> = ({
     </Pressable>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing[3],
-  },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-  },
-  cell: {
-    width: 48,
-    height: 56,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellActive: {
-    borderColor: colors.primary[500],
-    borderWidth: 2,
-  },
-  cellFilled: {
-    backgroundColor: colors.background.secondary,
-    borderColor: colors.border.light,
-  },
-  cellError: {
-    borderColor: colors.error.main,
-  },
-  cellText: {
-    ...typography.headlineMedium,
-    color: colors.text.primary,
-  },
-  cursor: {
-    position: 'absolute',
-    width: 2,
-    height: 24,
-    backgroundColor: colors.primary[500],
-  },
-});

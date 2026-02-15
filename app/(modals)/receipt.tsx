@@ -1,32 +1,50 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors, typography, spacing, borderRadius } from '../../src/theme';
+import { colors } from '../../src/theme';
 import { IconButton, Button, Avatar, Divider } from '../../src/components/ui';
-import { transactions } from '../../src/mock/transactions';
+import { useTransactionDetail } from '../../src/hooks/useTransactions';
 import Svg, { Path } from 'react-native-svg';
 
 export default function ReceiptModal() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const transaction = transactions.find(t => t.id === id) || transactions[0];
-  const isCredit = transaction.amount > 0;
+  const { data: transaction, isLoading } = useTransactionDetail(id);
 
   const handleClose = () => {
     router.back();
   };
 
-  const handleShare = () => {
-    // Share functionality
-  };
+  const handleShare = () => {};
+
+  if (isLoading || !transaction) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-elevated">
+        <View className="flex-row justify-between items-center px-4 py-2">
+          <View className="w-10" />
+          <Text className="text-title-md font-inter-medium text-txt-primary">Receipt</Text>
+          <IconButton
+            icon={<Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M18 6L6 18M6 6L18 18" stroke={colors.text.primary} strokeWidth={2} strokeLinecap="round" /></Svg>}
+            onPress={handleClose}
+            variant="ghost"
+          />
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const isCredit = transaction.amount > 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ width: 40 }} />
-        <Text style={styles.headerTitle}>Receipt</Text>
+    <SafeAreaView className="flex-1 bg-bg-elevated">
+      <View className="flex-row justify-between items-center px-4 py-2">
+        <View className="w-10" />
+        <Text className="text-title-md font-inter-medium text-txt-primary">Receipt</Text>
         <IconButton
           icon={<Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M18 6L6 18M6 6L18 18" stroke={colors.text.primary} strokeWidth={2} strokeLinecap="round" /></Svg>}
           onPress={handleClose}
@@ -34,80 +52,78 @@ export default function ReceiptModal() {
         />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <View style={styles.receiptCard}>
-          <View style={styles.logoSection}>
-            <View style={styles.logo}>
-              <Text style={styles.logoText}>T</Text>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+        <View className="bg-bg-primary rounded-xl p-6">
+          <View className="items-center mb-6">
+            <View className="w-12 h-12 rounded-full bg-accent-500 items-center justify-center mb-2">
+              <Text className="text-headline-md font-inter-semibold text-txt-inverse">T</Text>
             </View>
-            <Text style={styles.logoName}>Tanda</Text>
+            <Text className="text-title-md font-inter-medium text-txt-primary">Tanda</Text>
           </View>
 
-          <View style={styles.statusSection}>
-            <View style={[styles.statusIcon, { backgroundColor: colors.success.main + '20' }]}>
+          <View className="items-center mb-4">
+            <View className="w-14 h-14 rounded-full items-center justify-center mb-2" style={{ backgroundColor: colors.success.main + '20' }}>
               <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
                 <Path d="M20 6L9 17l-5-5" stroke={colors.success.main} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
-            <Text style={styles.statusText}>Successful</Text>
+            <Text className="text-title-sm font-inter-medium text-success-main">Successful</Text>
           </View>
 
-          <Text style={styles.amount}>
+          <Text className="text-display-lg font-inter-bold text-txt-primary text-center">
             {isCredit ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
           </Text>
 
-          <Divider spacing={spacing[4]} />
+          <Divider spacing={16} />
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Type</Text>
-            <Text style={styles.detailValue}>{transaction.type}</Text>
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-body-md font-inter text-txt-tertiary">Type</Text>
+            <Text className="text-body-md font-inter text-txt-primary">{transaction.type}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{isCredit ? 'From' : 'To'}</Text>
-            <View style={styles.recipientRow}>
-              <Avatar name={transaction.title} size="xs" />
-              <Text style={styles.detailValue}>{transaction.title}</Text>
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-body-md font-inter text-txt-tertiary">{isCredit ? 'From' : 'To'}</Text>
+            <View className="flex-row items-center gap-2">
+              <Avatar name={transaction.recipient?.name || transaction.sender?.name || transaction.description} size="small" />
+              <Text className="text-body-md font-inter text-txt-primary">{transaction.recipient?.name || transaction.sender?.name || transaction.description}</Text>
             </View>
           </View>
 
-          {transaction.note && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Note</Text>
-              <Text style={styles.detailValue}>{transaction.note}</Text>
+          {transaction.description && (
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-body-md font-inter text-txt-tertiary">Note</Text>
+              <Text className="text-body-md font-inter text-txt-primary">{transaction.description}</Text>
             </View>
           )}
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Date</Text>
-            <Text style={styles.detailValue}>{transaction.date}</Text>
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-body-md font-inter text-txt-tertiary">Date</Text>
+            <Text className="text-body-md font-inter text-txt-primary">{new Date(transaction.created_at).toLocaleDateString()}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Reference</Text>
-            <Text style={styles.detailValue}>{transaction.id}</Text>
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-body-md font-inter text-txt-tertiary">Reference</Text>
+            <Text className="text-body-md font-inter text-txt-primary">{transaction.id}</Text>
           </View>
 
-          <Divider spacing={spacing[4]} />
+          <Divider spacing={16} />
 
-          <View style={styles.feeSection}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Amount</Text>
-              <Text style={styles.detailValue}>${Math.abs(transaction.amount).toFixed(2)}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Fee</Text>
-              <Text style={styles.detailValue}>$0.00</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${Math.abs(transaction.amount).toFixed(2)}</Text>
-            </View>
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-body-md font-inter text-txt-tertiary">Amount</Text>
+            <Text className="text-body-md font-inter text-txt-primary">${Math.abs(transaction.amount).toFixed(2)}</Text>
+          </View>
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-body-md font-inter text-txt-tertiary">Fee</Text>
+            <Text className="text-body-md font-inter text-txt-primary">$0.00</Text>
+          </View>
+          <View className="flex-row justify-between items-center">
+            <Text className="text-title-sm font-inter-medium text-txt-primary">Total</Text>
+            <Text className="text-title-sm font-inter-medium text-txt-primary">${Math.abs(transaction.amount).toFixed(2)}</Text>
           </View>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View className="px-5 pb-6 gap-3">
         <Button
           title="Share Receipt"
           variant="secondary"
@@ -124,32 +140,3 @@ export default function ReceiptModal() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.elevated },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
-  headerTitle: { ...typography.titleMedium, color: colors.text.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[6] },
-  receiptCard: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.xl,
-    padding: spacing[6],
-  },
-  logoSection: { alignItems: 'center', marginBottom: spacing[6] },
-  logo: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary[500], alignItems: 'center', justifyContent: 'center', marginBottom: spacing[2] },
-  logoText: { ...typography.headlineMedium, color: colors.text.inverse },
-  logoName: { ...typography.titleMedium, color: colors.text.primary },
-  statusSection: { alignItems: 'center', marginBottom: spacing[4] },
-  statusIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[2] },
-  statusText: { ...typography.titleSmall, color: colors.success.main },
-  amount: { ...typography.displayLarge, color: colors.text.primary, textAlign: 'center' },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[3] },
-  detailLabel: { ...typography.bodyMedium, color: colors.text.tertiary },
-  detailValue: { ...typography.bodyMedium, color: colors.text.primary },
-  recipientRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  feeSection: { },
-  totalLabel: { ...typography.titleSmall, color: colors.text.primary },
-  totalValue: { ...typography.titleSmall, color: colors.text.primary },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[6], gap: spacing[3] },
-});

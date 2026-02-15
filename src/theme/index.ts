@@ -24,7 +24,7 @@ export type {
   Layout
 } from './spacing';
 
-// Animation timing
+// Animation timing (for programmatic use with Reanimated)
 export const timing = {
   fast: 150,
   normal: 250,
@@ -32,24 +32,28 @@ export const timing = {
   slower: 600,
 } as const;
 
-// Spring configs for Reanimated
+// Reanimated spring presets
+export const springPresets = {
+  snappy: { damping: 20, stiffness: 300, mass: 0.8 },
+  gentle: { damping: 15, stiffness: 150, mass: 1 },
+  bouncy: { damping: 10, stiffness: 180, mass: 0.8 },
+  press: { damping: 15, stiffness: 400, mass: 0.5 },
+} as const;
+
+// Reanimated timing presets (duration in ms)
+export const timingPresets = {
+  fast: { duration: 150 },
+  normal: { duration: 250 },
+  slow: { duration: 400 },
+  entrance: { duration: 350 },
+} as const;
+
+// Spring configs for Reanimated (legacy compat)
 export const springConfig = {
-  gentle: {
-    damping: 15,
-    stiffness: 150,
-  },
-  bouncy: {
-    damping: 10,
-    stiffness: 180,
-  },
-  stiff: {
-    damping: 20,
-    stiffness: 300,
-  },
-  wobbly: {
-    damping: 8,
-    stiffness: 200,
-  },
+  gentle: { damping: 15, stiffness: 150 },
+  bouncy: { damping: 10, stiffness: 180 },
+  stiff: { damping: 20, stiffness: 300 },
+  wobbly: { damping: 8, stiffness: 200 },
 } as const;
 
 // Shadow presets
@@ -86,6 +90,42 @@ export const shadows = {
     shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  // Glow shadow presets for premium UI
+  glowPrimary: {
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  glowPrimarySubtle: {
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  glowSuccess: {
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardFloat: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  buttonGlow: {
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 8,
   },

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Keyboard,
   KeyboardAvoidingView,
@@ -11,10 +10,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../../src/theme';
 import { OTPInput, Button } from '../../src/components/ui';
 import { Header } from '../../src/components/layout';
 import { useAuthStore, useUIStore } from '../../src/stores';
+import { useAuth } from '../../src/hooks/useAuth';
 import { formatPhoneNumber } from '../../src/utils/formatters';
 
 const COUNTDOWN_SECONDS = 60;
@@ -23,6 +22,7 @@ export default function VerifyScreen() {
   const router = useRouter();
   const phoneNumber = useAuthStore((state) => state.phoneNumber);
   const showToast = useUIStore((state) => state.showToast);
+  const { verifyOtp, sendOtp } = useAuth();
 
   const [otp, setOtp] = useState('');
   const [error, setError] = useState(false);
@@ -40,31 +40,45 @@ export default function VerifyScreen() {
   }, [countdown]);
 
   const handleOtpComplete = async (code: string) => {
-    if (isVerifying) return; // Prevent double-submission
+    if (isVerifying) return;
 
     setIsVerifying(true);
     setError(false);
 
-    // Simulate verification delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const result = await verifyOtp(code);
 
-    // For demo: accept any 6-digit code or show error
-    if (code === '123456' || code.length === 6) {
       showToast({ type: 'success', title: 'Phone verified!' });
-      router.replace('/(auth)/username');
-    } else {
+
+      if (result.needsUsername) {
+        router.replace('/(auth)/username');
+      } else if (result.needsPin) {
+        router.replace('/(auth)/set-pin');
+      } else {
+        router.replace('/(main)/(home)');
+      }
+    } catch (err: any) {
       setError(true);
       setOtp('');
+      showToast({ type: 'error', title: 'Verification failed', message: err.message });
+    } finally {
       setIsVerifying(false);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    if (!phoneNumber) return;
     setCountdown(COUNTDOWN_SECONDS);
     setCanResend(false);
     setError(false);
     setOtp('');
-    showToast({ type: 'info', title: 'Code resent', message: 'Check your SMS' });
+
+    try {
+      await sendOtp(phoneNumber);
+      showToast({ type: 'info', title: 'Code resent', message: 'Check your SMS' });
+    } catch {
+      showToast({ type: 'error', title: 'Failed to resend code' });
+    }
   };
 
   const formatCountdown = () => {
@@ -78,27 +92,29 @@ export default function VerifyScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack />
 
-            <View style={styles.content}>
-              <View style={styles.header}>
-                <Text style={styles.title}>Enter verification code</Text>
-                <Text style={styles.subtitle}>
+            <View className="flex-1 px-5">
+              <View className="mt-4 mb-8">
+                <Text className="text-headline-lg font-inter-bold text-txt-primary mb-2">
+                  Enter verification code
+                </Text>
+                <Text className="text-body-lg font-inter text-txt-secondary leading-[26px]">
                   We sent a 6-digit code to{'\n'}
-                  <Text style={styles.phone}>
+                  <Text className="text-txt-primary font-inter-semibold">
                     {phoneNumber ? formatPhoneNumber(phoneNumber) : '+234 *** *** ****'}
                   </Text>
                 </Text>
               </View>
 
-              <View style={styles.otpContainer}>
+              <View className="items-center">
                 <OTPInput
                   value={otp}
                   onChange={setOtp}
@@ -108,28 +124,32 @@ export default function VerifyScreen() {
                 />
 
                 {error && (
-                  <Text style={styles.errorText}>
+                  <Text className="text-body-md font-inter text-error-main mt-4 text-center">
                     Invalid code. Please try again.
                   </Text>
                 )}
               </View>
 
-              <View style={styles.resendContainer}>
+              <View className="items-center mt-8">
                 {canResend ? (
                   <TouchableOpacity onPress={handleResend}>
-                    <Text style={styles.resendText}>
-                      Didn't receive the code? <Text style={styles.resendLink}>Resend</Text>
+                    <Text className="text-body-md font-inter text-txt-secondary">
+                      Didn't receive the code?{' '}
+                      <Text className="text-accent-500 font-inter-semibold">Resend</Text>
                     </Text>
                   </TouchableOpacity>
                 ) : (
-                  <Text style={styles.countdownText}>
-                    Resend code in <Text style={styles.countdown}>{formatCountdown()}</Text>
+                  <Text className="text-body-md font-inter text-txt-tertiary">
+                    Resend code in{' '}
+                    <Text className="text-txt-secondary font-inter-semibold">
+                      {formatCountdown()}
+                    </Text>
                   </Text>
                 )}
               </View>
             </View>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button
                 title="Verify"
                 onPress={() => handleOtpComplete(otp)}
@@ -144,68 +164,3 @@ export default function VerifyScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing[5],
-  },
-  header: {
-    marginTop: spacing[4],
-    marginBottom: spacing[8],
-  },
-  title: {
-    ...typography.headlineLarge,
-    color: colors.text.primary,
-    marginBottom: spacing[2],
-  },
-  subtitle: {
-    ...typography.bodyLarge,
-    color: colors.text.secondary,
-    lineHeight: 26,
-  },
-  phone: {
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  otpContainer: {
-    alignItems: 'center',
-  },
-  errorText: {
-    ...typography.bodyMedium,
-    color: colors.error.main,
-    marginTop: spacing[4],
-    textAlign: 'center',
-  },
-  resendContainer: {
-    alignItems: 'center',
-    marginTop: spacing[8],
-  },
-  resendText: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
-  },
-  resendLink: {
-    color: colors.primary[500],
-    fontWeight: '600',
-  },
-  countdownText: {
-    ...typography.bodyMedium,
-    color: colors.text.tertiary,
-  },
-  countdown: {
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  footer: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[8],
-  },
-});

@@ -4,18 +4,31 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/components/*": ["src/components/*"],
-      "@/theme/*": ["src/theme/*"],
-      "@/mock/*": ["src/mock/*"],
-      "@/stores/*": ["src/stores/*"],
-      "@/utils/*": ["src/utils/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/components/*": [
+        "src/components/*"
+      ],
+      "@/theme/*": [
+        "src/theme/*"
+      ],
+      "@/mock/*": [
+        "src/mock/*"
+      ],
+      "@/stores/*": [
+        "src/stores/*"
+      ],
+      "@/utils/*": [
+        "src/utils/*"
+      ]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
   ]
 }

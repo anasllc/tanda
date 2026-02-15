@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, typography, spacing } from '../../../src/theme';
+import { colors, shadows } from '../../../src/theme';
 import { Button } from '../../../src/components/ui';
 import { formatCurrency } from '../../../src/utils/formatters';
 import { successHaptic } from '../../../src/utils/haptics';
@@ -26,56 +27,12 @@ export default function SuccessScreen() {
   const params = useLocalSearchParams<{
     contactName: string;
     amount: string;
+    transactionId?: string;
+    reference?: string;
   }>();
-
-  const scale = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const buttonOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     successHaptic();
-
-    // Check mark animation
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.spring(scale, {
-          toValue: 1.2,
-          damping: 8,
-          stiffness: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scale, {
-          toValue: 1,
-          damping: 10,
-          stiffness: 150,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-
-    // Text animation (delayed)
-    setTimeout(() => {
-      Animated.timing(textOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }, 300);
-
-    // Button animation (delayed)
-    setTimeout(() => {
-      Animated.timing(buttonOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }, 600);
   }, []);
 
   const handleDone = () => {
@@ -89,90 +46,65 @@ export default function SuccessScreen() {
   const amount = parseFloat(params.amount || '0');
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
+      <View className="flex-1 items-center justify-center px-5">
+        {/* Ambient glow behind check */}
+        <View className="absolute w-40 h-40 rounded-full bg-success-main/10" />
+
+        {/* Ripple rings */}
         <Animated.View
-          style={[
-            styles.checkContainer,
-            {
-              transform: [{ scale }],
-              opacity,
-            },
-          ]}
+          entering={ZoomIn.delay(100).duration(800)}
+          className="absolute w-32 h-32 rounded-full border border-success-main/10"
+        />
+        <Animated.View
+          entering={ZoomIn.delay(200).duration(800)}
+          className="absolute w-44 h-44 rounded-full border border-success-main/5"
+        />
+
+        {/* Check mark */}
+        <Animated.View
+          entering={ZoomIn.delay(0).duration(500).springify()}
+          className="mb-8"
+          style={shadows.glowSuccess}
         >
           <SuccessCheck />
         </Animated.View>
 
-        <Animated.View style={[styles.textContainer, { opacity: textOpacity }]}>
-          <Text style={styles.title}>Money Sent!</Text>
-          <Text style={styles.amount}>{formatCurrency(amount)}</Text>
-          <Text style={styles.recipient}>
-            has been sent to{'\n'}
-            <Text style={styles.recipientName}>{params.contactName}</Text>
+        <Animated.View entering={FadeInDown.delay(300).duration(400)} className="items-center">
+          <Text className="text-headline-lg font-inter-bold text-success-main mb-4">
+            Money Sent!
           </Text>
+          <Text className="text-display-md font-inter-bold text-txt-primary mb-3" style={{ letterSpacing: -1 }}>
+            {formatCurrency(amount)}
+          </Text>
+          <Text className="text-body-lg font-inter text-txt-secondary text-center leading-relaxed">
+            has been sent to{'\n'}
+            <Text className="text-txt-primary font-inter-semibold">{params.contactName}</Text>
+          </Text>
+
+          {params.reference && (
+            <Text className="text-body-sm font-inter text-txt-tertiary mt-4">
+              Ref: {params.reference}
+            </Text>
+          )}
         </Animated.View>
       </View>
 
-      <Animated.View style={[styles.footer, { opacity: buttonOpacity }]}>
+      <Animated.View entering={FadeIn.delay(600).duration(400)} className="px-5 pb-8">
         <Button
           title="Done"
           onPress={handleDone}
           fullWidth
         />
-        <Button
-          title="Send More"
-          onPress={handleSendMore}
-          variant="ghost"
-          fullWidth
-          style={styles.secondaryButton}
-        />
+        <View className="mt-3">
+          <Button
+            title="Send More"
+            onPress={handleSendMore}
+            variant="ghost"
+            fullWidth
+          />
+        </View>
       </Animated.View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing[5],
-  },
-  checkContainer: {
-    marginBottom: spacing[8],
-  },
-  textContainer: {
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.headlineLarge,
-    color: colors.success.main,
-    marginBottom: spacing[4],
-  },
-  amount: {
-    ...typography.displayMedium,
-    color: colors.text.primary,
-    marginBottom: spacing[3],
-  },
-  recipient: {
-    ...typography.bodyLarge,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 26,
-  },
-  recipientName: {
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  footer: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[8],
-  },
-  secondaryButton: {
-    marginTop: spacing[3],
-  },
-});

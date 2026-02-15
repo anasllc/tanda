@@ -1,5 +1,18 @@
 import { create } from 'zustand';
-import { currentUser, User } from '../mock/users';
+
+export interface User {
+  id: string;
+  username: string;
+  displayName: string;
+  phoneNumber: string;
+  email?: string;
+  avatar?: string;
+  isVerified: boolean;
+  createdAt: string;
+  walletAddress?: string;
+  needsUsername?: boolean;
+  needsPin?: boolean;
+}
 
 export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -18,19 +31,21 @@ interface AuthState {
   setUser: (user: User) => void;
   setOnboarded: (value: boolean) => void;
   setPinSet: (value: boolean) => void;
-  login: () => void;
+  setBalance: (available: number, pending: number, locked: number) => void;
+  login: (user: User) => void;
   logout: () => void;
   updateBalance: (amount: number) => void;
+  updateUser: (fields: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  status: 'unauthenticated',
+  status: 'idle',
   user: null,
   phoneNumber: null,
   isOnboarded: false,
   isPinSet: false,
-  balance: 247500.00, // Mock balance
-  pendingBalance: 15000.00, // Mock pending
+  balance: 0,
+  pendingBalance: 0,
   lockedBalance: 0,
 
   setPhoneNumber: (phone) => set({ phoneNumber: phone }),
@@ -41,9 +56,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setPinSet: (value) => set({ isPinSet: value }),
 
-  login: () => set({
+  setBalance: (available, pending, locked) => set({
+    balance: available,
+    pendingBalance: pending,
+    lockedBalance: locked,
+  }),
+
+  login: (user) => set({
     status: 'authenticated',
-    user: currentUser,
+    user,
     isOnboarded: true,
     isPinSet: true,
   }),
@@ -54,10 +75,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     phoneNumber: null,
     isOnboarded: false,
     isPinSet: false,
+    balance: 0,
+    pendingBalance: 0,
+    lockedBalance: 0,
   }),
 
   updateBalance: (amount) => set((state) => ({
     balance: state.balance + amount,
+  })),
+
+  updateUser: (fields) => set((state) => ({
+    user: state.user ? { ...state.user, ...fields } : null,
   })),
 }));
 
