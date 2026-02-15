@@ -1,0 +1,124 @@
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { Avatar, Badge, Card, Divider } from '../../../src/components/ui';
+import { useAuthStore } from '../../../src/stores';
+import { lightHaptic } from '../../../src/utils/haptics';
+
+const menuItems = [
+  { id: 'banks', label: 'Bank Accounts', icon: 'credit-card', route: '/(main)/(profile)/bank-accounts' },
+  { id: 'limits', label: 'Transaction Limits', icon: 'sliders', route: '/(main)/(profile)/limits' },
+  { id: 'security', label: 'Security', icon: 'shield', route: '/(main)/(profile)/security' },
+  { id: 'help', label: 'Help & Support', icon: 'help', route: '/(main)/(profile)/help' },
+  { id: 'about', label: 'About', icon: 'info', route: '/(main)/(profile)/about' },
+];
+
+const getIcon = (icon: string) => {
+  const props = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none' };
+  const stroke = colors.text.secondary;
+  switch (icon) {
+    case 'credit-card':
+      return <Svg {...props}><Rect x={2} y={5} width={20} height={14} rx={2} stroke={stroke} strokeWidth={2} /><Path d="M2 10H22" stroke={stroke} strokeWidth={2} /></Svg>;
+    case 'sliders':
+      return <Svg {...props}><Path d="M4 21V14M4 10V3M12 21V12M12 8V3M20 21V16M20 12V3M1 14H7M9 8H15M17 16H23" stroke={stroke} strokeWidth={2} strokeLinecap="round" /></Svg>;
+    case 'shield':
+      return <Svg {...props}><Path d="M12 22C12 22 20 18 20 12V5L12 2L4 5V12C4 18 12 22 12 22Z" stroke={stroke} strokeWidth={2} /></Svg>;
+    case 'help':
+      return <Svg {...props}><Circle cx={12} cy={12} r={10} stroke={stroke} strokeWidth={2} /><Path d="M9 9C9 7.34 10.34 6 12 6C13.66 6 15 7.34 15 9C15 10.31 14.17 11.42 13 11.83V14M12 17H12.01" stroke={stroke} strokeWidth={2} strokeLinecap="round" /></Svg>;
+    case 'info':
+      return <Svg {...props}><Circle cx={12} cy={12} r={10} stroke={stroke} strokeWidth={2} /><Path d="M12 16V12M12 8H12.01" stroke={stroke} strokeWidth={2} strokeLinecap="round" /></Svg>;
+    default:
+      return <Svg {...props}><Circle cx={12} cy={12} r={8} stroke={stroke} strokeWidth={2} /></Svg>;
+  }
+};
+
+export default function MoreScreen() {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleMenuPress = (route: string) => {
+    lightHaptic();
+    router.push(route as any);
+  };
+
+  const handleViewProfile = () => {
+    lightHaptic();
+    router.push('/(main)/(profile)/edit-profile' as any);
+  };
+
+  const handleLogout = () => {
+    lightHaptic();
+    logout();
+    router.replace('/(auth)/welcome');
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Card style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <Avatar name={user?.displayName || 'User'} size="xlarge" />
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{user?.displayName}</Text>
+              <Text style={styles.profileUsername}>@{user?.username}</Text>
+              {user?.isVerified && <Badge label="Verified" variant="success" size="small" />}
+            </View>
+          </View>
+          <TouchableOpacity style={styles.viewProfileButton} onPress={handleViewProfile}>
+            <Text style={styles.viewProfileText}>View Profile</Text>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path d="M9 18L15 12L9 6" stroke={colors.primary[500]} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+        </Card>
+
+        <Card style={styles.menuCard}>
+          {menuItems.map((item, index) => (
+            <React.Fragment key={item.id}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress(item.route)}>
+                <View style={styles.menuIcon}>{getIcon(item.icon)}</View>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path d="M9 18L15 12L9 6" stroke={colors.text.tertiary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+              {index < menuItems.length - 1 && <Divider spacing={0} />}
+            </React.Fragment>
+          ))}
+        </Card>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.version}>Version 1.0.0</Text>
+
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background.primary },
+  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
+  profileCard: { marginBottom: spacing[6] },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing[4] },
+  profileInfo: { marginLeft: spacing[4], flex: 1 },
+  profileName: { ...typography.titleLarge, color: colors.text.primary },
+  profileUsername: { ...typography.bodyMedium, color: colors.primary[500], marginTop: 2, marginBottom: spacing[2] },
+  viewProfileButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary[500] + '12', paddingVertical: spacing[3], borderRadius: borderRadius.xl },
+  viewProfileText: { ...typography.labelLarge, color: colors.primary[500], marginRight: spacing[1] },
+  menuCard: { padding: 0, overflow: 'hidden' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: spacing[4] },
+  menuIcon: { marginRight: spacing[4] },
+  menuLabel: { ...typography.bodyLarge, color: colors.text.primary, flex: 1 },
+  logoutButton: { alignItems: 'center', paddingVertical: spacing[4], marginTop: spacing[6] },
+  logoutText: { ...typography.titleMedium, color: colors.error.main },
+  version: { ...typography.bodySmall, color: colors.text.tertiary, textAlign: 'center', marginTop: spacing[4] },
+  bottomPadding: { height: layout.tabBarHeight + spacing[4] },
+});
