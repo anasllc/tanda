@@ -1,6 +1,11 @@
-import React, { useRef } from 'react';
-import { TouchableOpacity, StyleSheet, ViewStyle, Animated } from 'react-native';
-import { colors, borderRadius } from '../../theme';
+import React from 'react';
+import { TouchableOpacity, ViewStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
+import { colors } from '../../theme';
 import { lightHaptic } from '../../utils/haptics';
 
 type IconButtonSize = 'small' | 'medium' | 'large';
@@ -16,6 +21,18 @@ interface IconButtonProps {
   haptic?: boolean;
 }
 
+const sizeClasses: Record<IconButtonSize, string> = {
+  small: 'w-8 h-8',
+  medium: 'w-11 h-11',
+  large: 'w-14 h-14',
+};
+
+const variantClasses: Record<IconButtonVariant, string> = {
+  default: 'bg-bg-tertiary',
+  filled: 'bg-accent-500',
+  ghost: 'bg-transparent',
+};
+
 export const IconButton: React.FC<IconButtonProps> = ({
   icon,
   onPress,
@@ -25,20 +42,18 @@ export const IconButton: React.FC<IconButtonProps> = ({
   style,
   haptic = true,
 }) => {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.9,
-      useNativeDriver: true,
-    }).start();
+    scale.value = withSpring(0.9);
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
+    scale.value = withSpring(1);
   };
 
   const handlePress = () => {
@@ -46,19 +61,15 @@ export const IconButton: React.FC<IconButtonProps> = ({
     onPress?.();
   };
 
-  const sizeStyle = getSizeStyle(size);
-  const variantStyle = getVariantStyle(variant);
-
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={animatedStyle}>
       <TouchableOpacity
-        style={[
-          styles.base,
-          sizeStyle,
-          variantStyle,
-          disabled && styles.disabled,
-          style,
-        ]}
+        className={`rounded-full items-center justify-center
+          ${sizeClasses[size]}
+          ${variantClasses[variant]}
+          ${disabled ? 'opacity-50' : ''}
+        `}
+        style={style}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
@@ -70,38 +81,3 @@ export const IconButton: React.FC<IconButtonProps> = ({
     </Animated.View>
   );
 };
-
-const getSizeStyle = (size: IconButtonSize): ViewStyle => {
-  const sizes: Record<IconButtonSize, ViewStyle> = {
-    small: { width: 32, height: 32 },
-    medium: { width: 44, height: 44 },
-    large: { width: 56, height: 56 },
-  };
-  return sizes[size];
-};
-
-const getVariantStyle = (variant: IconButtonVariant): ViewStyle => {
-  const variants: Record<IconButtonVariant, ViewStyle> = {
-    default: {
-      backgroundColor: colors.background.tertiary,
-    },
-    filled: {
-      backgroundColor: colors.primary[500],
-    },
-    ghost: {
-      backgroundColor: 'transparent',
-    },
-  };
-  return variants[variant];
-};
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-});

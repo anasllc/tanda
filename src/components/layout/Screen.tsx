@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   ScrollView,
-  StyleSheet,
   ViewStyle,
   RefreshControl,
   KeyboardAvoidingView,
@@ -11,12 +10,13 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, layout } from '../../theme';
+import { colors } from '../../theme';
 
 interface ScreenProps {
   children: React.ReactNode;
   style?: ViewStyle;
   contentStyle?: ViewStyle;
+  className?: string;
   scroll?: boolean;
   safeArea?: boolean;
   edges?: ('top' | 'right' | 'bottom' | 'left')[];
@@ -31,6 +31,7 @@ export const Screen: React.FC<ScreenProps> = ({
   children,
   style,
   contentStyle,
+  className = '',
   scroll = true,
   safeArea = true,
   edges = ['top', 'left', 'right'],
@@ -48,8 +49,8 @@ export const Screen: React.FC<ScreenProps> = ({
 
   const content = scroll ? (
     <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={[styles.scrollContent, contentStyle]}
+      className="flex-1"
+      contentContainerStyle={[{ flexGrow: 1, paddingHorizontal: 20, paddingBottom: 24 }, contentStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -67,12 +68,14 @@ export const Screen: React.FC<ScreenProps> = ({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, contentStyle]}>{children}</View>
+    <View className="flex-1 px-5" style={contentStyle}>
+      {children}
+    </View>
   );
 
   const withKeyboardDismiss = dismissKeyboardOnTap ? (
     <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
-      <View style={styles.flex}>{content}</View>
+      <View className="flex-1">{content}</View>
     </TouchableWithoutFeedback>
   ) : (
     content
@@ -80,7 +83,7 @@ export const Screen: React.FC<ScreenProps> = ({
 
   const wrappedContent = keyboardAvoiding ? (
     <KeyboardAvoidingView
-      style={styles.keyboardAvoiding}
+      className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
@@ -91,32 +94,12 @@ export const Screen: React.FC<ScreenProps> = ({
   );
 
   return (
-    <Container style={[styles.container, { backgroundColor }, style]} edges={edges as any}>
+    <Container
+      className={`flex-1 ${className}`}
+      style={[{ backgroundColor }, style]}
+      edges={edges as any}
+    >
       {wrappedContent}
     </Container>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: layout.screenPaddingHorizontal,
-    paddingBottom: spacing[6],
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: layout.screenPaddingHorizontal,
-  },
-  keyboardAvoiding: {
-    flex: 1,
-  },
-});

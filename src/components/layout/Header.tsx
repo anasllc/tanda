@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import { colors, typography, spacing, layout } from '../../theme';
+import { colors } from '../../theme';
 import { lightHaptic } from '../../utils/haptics';
 
 interface HeaderProps {
   title?: string;
+  subtitle?: string;
   showBack?: boolean;
   onBack?: () => void;
   leftElement?: React.ReactNode;
@@ -29,6 +30,7 @@ const BackIcon = () => (
 
 export const Header: React.FC<HeaderProps> = ({
   title,
+  subtitle,
   showBack = false,
   onBack,
   leftElement,
@@ -49,17 +51,14 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <View
-      style={[
-        styles.container,
-        transparent && styles.transparent,
-        style,
-      ]}
+      className={`h-14 flex-row items-center justify-between px-4 ${transparent ? 'bg-transparent' : 'bg-bg-primary'}`}
+      style={style}
     >
-      <View style={styles.left}>
+      <View className="flex-row items-center min-w-[60px]">
         {showBack && (
           <TouchableOpacity
             onPress={handleBack}
-            style={styles.backButton}
+            className="w-9 h-9 rounded-full bg-bg-tertiary items-center justify-center"
             hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
           >
             <BackIcon />
@@ -68,51 +67,22 @@ export const Header: React.FC<HeaderProps> = ({
         {leftElement}
       </View>
 
-      {title && (
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
-      )}
+      <View className="flex-1 mx-2">
+        {title && (
+          <Text className="text-headline-sm font-inter-semibold text-txt-primary text-center" numberOfLines={1}>
+            {title}
+          </Text>
+        )}
+        {subtitle && (
+          <Text className="text-body-sm font-inter text-txt-secondary text-center">
+            {subtitle}
+          </Text>
+        )}
+      </View>
 
-      <View style={styles.right}>
+      <View className="flex-row items-center justify-end min-w-[60px]">
         {rightElement}
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    height: layout.headerHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing[4],
-    backgroundColor: colors.background.primary,
-  },
-  transparent: {
-    backgroundColor: 'transparent',
-  },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 60,
-  },
-  right: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    minWidth: 60,
-  },
-  backButton: {
-    padding: spacing[2],
-    marginLeft: -spacing[2],
-  },
-  title: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: spacing[2],
-  },
-});

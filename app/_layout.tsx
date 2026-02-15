@@ -1,7 +1,11 @@
+import 'fast-text-encoding';
+import 'react-native-get-random-values';
+import '@ethersproject/shims';
+import '../global.css';
+
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   useFonts,
@@ -11,11 +15,20 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
-import { colors } from '../src/theme';
+import { PrivyProvider } from '@privy-io/expo';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from '../src/components/ui';
 
-// Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 2,
+    },
+  },
+});
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -36,36 +49,34 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background.primary },
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(main)" />
-          <Stack.Screen
-            name="(modals)"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
+    <PrivyProvider
+      appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID!}
+      clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID!}
+    >
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#050506' },
+              animation: 'slide_from_right',
             }}
-          />
-        </Stack>
-        <ToastContainer />
-      </View>
-    </GestureHandlerRootView>
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(main)" />
+            <Stack.Screen
+              name="(modals)"
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
+          </Stack>
+          <ToastContainer />
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </PrivyProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-});

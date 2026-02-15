@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Input, Button, Card } from '../../../src/components/ui';
 import { useUIStore } from '../../../src/stores';
@@ -44,42 +44,45 @@ export default function DepositCardScreen() {
   const isValid = cardNumber.length === 19 && expiry.length === 5 && cvv.length === 3 && parseFloat(amount) > 0;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack title="Card Payment" />
-            <View style={styles.content}>
-              <Card style={styles.cardPreview}>
-                <View style={styles.cardTop}>
+            <View className="flex-1 px-5 pt-4">
+              <Card
+                className="p-5 mb-6 h-[180px] justify-between"
+                style={{ backgroundColor: colors.primary[600] }}
+              >
+                <View className="flex-row justify-between items-center">
                   <Svg width={40} height={28} viewBox="0 0 40 28">
                     <Rect width={40} height={28} rx={4} fill={colors.primary[600]} />
                     <Path d="M12 18H8v-2h4v2zm6-4H8v-2h10v2z" fill={colors.text.inverse} />
                   </Svg>
-                  <Text style={styles.cardType}>VISA</Text>
+                  <Text className="text-title-md font-inter-medium text-txt-inverse tracking-widest">VISA</Text>
                 </View>
-                <Text style={styles.cardNumberPreview}>
+                <Text className="text-headline-sm font-inter-semibold text-txt-inverse tracking-widest">
                   {cardNumber || '•••• •••• •••• ••••'}
                 </Text>
-                <View style={styles.cardBottom}>
+                <View className="flex-row">
                   <View>
-                    <Text style={styles.cardLabel}>EXPIRES</Text>
-                    <Text style={styles.cardValue}>{expiry || 'MM/YY'}</Text>
+                    <Text className="text-label-sm font-inter-medium mb-0.5" style={{ color: colors.primary[200] }}>EXPIRES</Text>
+                    <Text className="text-body-md font-inter text-txt-inverse">{expiry || 'MM/YY'}</Text>
                   </View>
                 </View>
               </Card>
 
-              <View style={styles.form}>
+              <View className="gap-4">
                 <Input
                   label="Amount"
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
-                  leftIcon={<Text style={styles.currencyIcon}>$</Text>}
+                  leftIcon={<Text className="text-body-lg font-inter text-txt-secondary">$</Text>}
                 />
 
                 <Input
@@ -91,8 +94,8 @@ export default function DepositCardScreen() {
                   maxLength={19}
                 />
 
-                <View style={styles.row}>
-                  <View style={styles.halfInput}>
+                <View className="flex-row gap-4">
+                  <View className="flex-1">
                     <Input
                       label="Expiry"
                       value={expiry}
@@ -102,7 +105,7 @@ export default function DepositCardScreen() {
                       maxLength={5}
                     />
                   </View>
-                  <View style={styles.halfInput}>
+                  <View className="flex-1">
                     <Input
                       label="CVV"
                       value={cvv}
@@ -116,15 +119,15 @@ export default function DepositCardScreen() {
                 </View>
               </View>
 
-              <View style={styles.secureNote}>
+              <View className="flex-row items-center justify-center gap-2 mt-6">
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={colors.success.main} strokeWidth={1.5} />
                 </Svg>
-                <Text style={styles.secureText}>Your card details are encrypted and secure</Text>
+                <Text className="text-body-sm font-inter text-success-main">Your card details are encrypted and secure</Text>
               </View>
             </View>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-6">
               <Button
                 title={loading ? 'Processing...' : `Deposit $${amount || '0.00'}`}
                 onPress={handleDeposit}
@@ -139,29 +142,3 @@ export default function DepositCardScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  cardPreview: {
-    backgroundColor: colors.primary[600],
-    padding: spacing[5],
-    marginBottom: spacing[6],
-    height: 180,
-    justifyContent: 'space-between',
-  },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardType: { ...typography.titleMedium, color: colors.text.inverse, letterSpacing: 2 },
-  cardNumberPreview: { ...typography.headlineSmall, color: colors.text.inverse, letterSpacing: 2 },
-  cardBottom: { flexDirection: 'row' },
-  cardLabel: { ...typography.labelSmall, color: colors.primary[200], marginBottom: 2 },
-  cardValue: { ...typography.bodyMedium, color: colors.text.inverse },
-  form: { gap: spacing[4] },
-  row: { flexDirection: 'row', gap: spacing[4] },
-  halfInput: { flex: 1 },
-  currencyIcon: { ...typography.bodyLarge, color: colors.text.secondary },
-  secureNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], marginTop: spacing[6] },
-  secureText: { ...typography.bodySmall, color: colors.success.main },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[6] },
-});

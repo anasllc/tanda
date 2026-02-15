@@ -1,6 +1,11 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, ViewStyle, Animated } from 'react-native';
-import { colors, borderRadius } from '../../theme';
+import React, { useEffect } from 'react';
+import { View, ViewStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
+import { colors } from '../../theme';
 
 interface ProgressBarProps {
   progress: number; // 0-1
@@ -19,38 +24,34 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   animated = true,
   style,
 }) => {
-  const animatedProgress = useRef(new Animated.Value(0)).current;
+  const animatedProgress = useSharedValue(0);
 
   useEffect(() => {
     const clampedProgress = Math.min(1, Math.max(0, progress));
     if (animated) {
-      Animated.timing(animatedProgress, {
-        toValue: clampedProgress * 100,
-        duration: 500,
-        useNativeDriver: false,
-      }).start();
+      animatedProgress.value = withTiming(clampedProgress * 100, { duration: 500 });
     } else {
-      animatedProgress.setValue(clampedProgress * 100);
+      animatedProgress.value = clampedProgress * 100;
     }
   }, [progress, animated]);
 
-  const widthInterpolated = animatedProgress.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
-  });
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${animatedProgress.value}%`,
+  }));
 
   return (
     <View
+      className="overflow-hidden"
       style={[
-        styles.container,
         { height, backgroundColor, borderRadius: height / 2 },
         style,
       ]}
     >
       <Animated.View
+        className="h-full"
         style={[
-          styles.fill,
-          { backgroundColor: color, borderRadius: height / 2, width: widthInterpolated },
+          { backgroundColor: color, borderRadius: height / 2 },
+          fillStyle,
         ]}
       />
     </View>
@@ -79,7 +80,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={StyleSheet.absoluteFill}>
+      <View className="absolute inset-0">
         {/* Background circle */}
         <View
           style={{
@@ -92,12 +93,10 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
         />
       </View>
       <View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            transform: [{ rotate: '-90deg' }],
-          },
-        ]}
+        className="absolute inset-0"
+        style={{
+          transform: [{ rotate: '-90deg' }],
+        }}
       >
         {/* Progress circle - simplified without SVG for animation */}
         <View
@@ -114,24 +113,10 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
         />
       </View>
       {children && (
-        <View style={styles.circularContent}>
+        <View className="absolute items-center justify-center">
           {children}
         </View>
       )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-  },
-  circularContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

@@ -1,19 +1,33 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Share } from 'react-native';
+import { View, Text, ScrollView, Share, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Card, Avatar, Badge, Button, ProgressBar } from '../../../src/components/ui';
-import { billSplits } from '../../../src/mock/billSplits';
+import { useBillSplit } from '../../../src/hooks/useBillSplits';
 import { useUIStore } from '../../../src/stores';
 import { lightHaptic } from '../../../src/utils/haptics';
-import Svg, { Path } from 'react-native-svg';
 
 export default function BillSplitDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const showToast = useUIStore((state) => state.showToast);
-  const split = billSplits[0];
-  const paidCount = split.participants.filter(p => p.status === 'paid').length;
+  const { data: split, isLoading } = useBillSplit(id);
+
+  if (isLoading || !split) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-primary">
+        <Header showBack title="Split Details" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const perPersonAmount = split.totalAmount / split.participants.length;
+  const paidCount = split.participants.filter((p: any) => p.status === 'paid').length;
   const progress = paidCount / split.participants.length;
 
   const handleSendReminder = (participantName: string) => {
@@ -24,7 +38,7 @@ export default function BillSplitDetailScreen() {
   const handleShareSplitLink = async () => {
     lightHaptic();
     const splitLink = `https://tanda.app/split/${split.id}`;
-    const message = `Join my bill split for "${split.title}" - $${split.perPersonAmount.toFixed(2)} per person. Pay here: ${splitLink}`;
+    const message = `Join my bill split for "${split.title}" - $${perPersonAmount.toFixed(2)} per person. Pay here: ${splitLink}`;
 
     try {
       await Share.share({
@@ -38,32 +52,32 @@ export default function BillSplitDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Split Details" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <Card style={styles.headerCard}>
-          <Text style={styles.splitTitle}>{split.title}</Text>
-          <Text style={styles.totalAmount}>${split.totalAmount.toFixed(2)}</Text>
-          <Text style={styles.perPerson}>${split.perPersonAmount.toFixed(2)} per person</Text>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-6">
+        <Card className="items-center mb-6">
+          <Text className="text-title-md font-inter-medium text-txt-secondary mb-2">{split.title}</Text>
+          <Text className="text-display-md font-inter-bold text-txt-primary mb-1">${split.totalAmount.toFixed(2)}</Text>
+          <Text className="text-body-md font-inter text-txt-tertiary mb-6">${perPersonAmount.toFixed(2)} per person</Text>
 
-          <View style={styles.progressSection}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressText}>{paidCount} of {split.participants.length} paid</Text>
-              <Text style={styles.progressPercent}>{Math.round(progress * 100)}%</Text>
+          <View className="w-full">
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-body-sm font-inter text-txt-secondary">{paidCount} of {split.participants.length} paid</Text>
+              <Text className="text-label-md font-inter-medium text-accent-400">{Math.round(progress * 100)}%</Text>
             </View>
             <ProgressBar progress={progress} />
           </View>
         </Card>
 
-        <Text style={styles.sectionTitle}>Participants</Text>
+        <Text className="text-title-sm font-inter-medium text-txt-primary mb-3">Participants</Text>
 
-        {split.participants.map(participant => (
-          <Card key={participant.id} style={styles.participantCard}>
-            <View style={styles.participantRow}>
-              <Avatar name={participant.name} size="md" />
-              <View style={styles.participantInfo}>
-                <Text style={styles.participantName}>{participant.name}</Text>
-                <Text style={styles.participantAmount}>${split.perPersonAmount.toFixed(2)}</Text>
+        {split.participants.map((participant: any) => (
+          <Card key={participant.id} className="mb-3">
+            <View className="flex-row items-center">
+              <Avatar name={participant.name} size="medium" />
+              <View className="flex-1 ml-3">
+                <Text className="text-body-lg font-inter text-txt-primary">{participant.name}</Text>
+                <Text className="text-body-sm font-inter text-txt-tertiary">${perPersonAmount.toFixed(2)}</Text>
               </View>
               <Badge
                 label={participant.status === 'paid' ? 'Paid' : participant.status === 'pending' ? 'Pending' : 'Declined'}
@@ -71,11 +85,11 @@ export default function BillSplitDetailScreen() {
               />
             </View>
             {participant.status === 'pending' && (
-              <View style={styles.reminderRow}>
+              <View className="mt-3 items-start">
                 <Button
                   title="Send Reminder"
                   variant="ghost"
-                  size="sm"
+                  size="small"
                   onPress={() => handleSendReminder(participant.name)}
                 />
               </View>
@@ -83,7 +97,7 @@ export default function BillSplitDetailScreen() {
           </Card>
         ))}
 
-        <View style={styles.actionsSection}>
+        <View className="mt-4">
           <Button
             title="Share Split Link"
             variant="secondary"
@@ -95,25 +109,3 @@ export default function BillSplitDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[6] },
-  headerCard: { alignItems: 'center', marginBottom: spacing[6] },
-  splitTitle: { ...typography.titleMedium, color: colors.text.secondary, marginBottom: spacing[2] },
-  totalAmount: { ...typography.displayMedium, color: colors.text.primary, marginBottom: spacing[1] },
-  perPerson: { ...typography.bodyMedium, color: colors.text.tertiary, marginBottom: spacing[6] },
-  progressSection: { width: '100%' },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[2] },
-  progressText: { ...typography.bodySmall, color: colors.text.secondary },
-  progressPercent: { ...typography.labelMedium, color: colors.primary[400] },
-  sectionTitle: { ...typography.titleSmall, color: colors.text.primary, marginBottom: spacing[3] },
-  participantCard: { marginBottom: spacing[3] },
-  participantRow: { flexDirection: 'row', alignItems: 'center' },
-  participantInfo: { flex: 1, marginLeft: spacing[3] },
-  participantName: { ...typography.bodyLarge, color: colors.text.primary },
-  participantAmount: { ...typography.bodySmall, color: colors.text.tertiary },
-  reminderRow: { marginTop: spacing[3], alignItems: 'flex-start' },
-  actionsSection: { marginTop: spacing[4] },
-});

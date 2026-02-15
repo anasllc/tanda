@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../../theme';
+import { View, Text, ViewStyle } from 'react-native';
+import { colors } from '../../theme';
 import { NetworkProvider } from '../../mock/services';
 import { withOpacity } from '../../utils';
 
@@ -25,6 +25,24 @@ const networkNames: Record<NetworkProvider, string> = {
   '9mobile': '9mobile',
 };
 
+const badgeSizeClasses: Record<string, string> = {
+  small: 'w-6 h-6',
+  medium: 'w-8 h-8',
+  large: 'w-11 h-11',
+};
+
+const textSizeStyles: Record<string, { fontSize: number }> = {
+  small: { fontSize: 10 },
+  medium: { fontSize: 12 },
+  large: { fontSize: 16 },
+};
+
+const labelSizeStyles: Record<string, { fontSize: number }> = {
+  small: { fontSize: 12 },
+  medium: { fontSize: 14 },
+  large: { fontSize: 16 },
+};
+
 export const NetworkBadge: React.FC<NetworkBadgeProps> = ({
   network,
   size = 'medium',
@@ -33,67 +51,28 @@ export const NetworkBadge: React.FC<NetworkBadgeProps> = ({
 }) => {
   const color = networkColors[network];
   const name = networkNames[network];
-  const sizeStyle = getSizeStyle(size);
 
   return (
-    <View style={[styles.container, style]}>
+    <View className="flex-row items-center" style={style}>
       <View
-        style={[
-          styles.badge,
-          sizeStyle.badge,
-          { backgroundColor: withOpacity(color, 0.12), borderColor: color },
-        ]}
+        className={`rounded-full border-2 items-center justify-center ${badgeSizeClasses[size]}`}
+        style={{ backgroundColor: withOpacity(color, 0.12), borderColor: color }}
       >
-        <Text style={[styles.badgeText, sizeStyle.text, { color }]}>
+        <Text
+          className="font-inter-bold"
+          style={[textSizeStyles[size], { color }]}
+        >
           {name.charAt(0)}
         </Text>
       </View>
       {showLabel && (
-        <Text style={[styles.label, sizeStyle.label]}>{name}</Text>
+        <Text
+          className="text-label-lg font-inter-medium text-txt-primary ml-2"
+          style={labelSizeStyles[size]}
+        >
+          {name}
+        </Text>
       )}
     </View>
   );
 };
-
-const getSizeStyle = (size: 'small' | 'medium' | 'large') => {
-  const sizes = {
-    small: {
-      badge: { width: 24, height: 24 },
-      text: { fontSize: 10 },
-      label: { fontSize: 12 },
-    },
-    medium: {
-      badge: { width: 32, height: 32 },
-      text: { fontSize: 12 },
-      label: { fontSize: 14 },
-    },
-    large: {
-      badge: { width: 44, height: 44 },
-      text: { fontSize: 16 },
-      label: { fontSize: 16 },
-    },
-  };
-
-  return sizes[size];
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  badge: {
-    borderRadius: borderRadius.full,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontWeight: '700',
-  },
-  label: {
-    ...typography.labelLarge,
-    color: colors.text.primary,
-    marginLeft: spacing[2],
-  },
-});

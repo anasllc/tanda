@@ -1,7 +1,12 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-import { colors, typography, spacing } from '../../theme';
+import { colors } from '../../theme';
 import { keypadHaptic } from '../../utils/haptics';
 
 interface KeypadButtonProps {
@@ -15,20 +20,18 @@ const KeypadButton: React.FC<KeypadButtonProps> = ({
   onPress,
   disabled = false,
 }) => {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.9,
-      useNativeDriver: true,
-    }).start();
+    scale.value = withSpring(0.9);
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
+    scale.value = withSpring(1);
   };
 
   const handlePress = () => {
@@ -73,17 +76,21 @@ const KeypadButton: React.FC<KeypadButtonProps> = ({
       );
     }
 
-    return <Text style={styles.buttonText}>{value}</Text>;
+    return (
+      <Text className="text-display-sm font-inter-bold text-txt-primary">
+        {value}
+      </Text>
+    );
   };
 
   if (value === '' || disabled) {
-    return <View style={styles.button} />;
+    return <View className="w-18 h-18 rounded-full items-center justify-center bg-bg-secondary" />;
   }
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={animatedStyle}>
       <TouchableOpacity
-        style={styles.button}
+        className="w-18 h-18 rounded-full items-center justify-center bg-bg-secondary"
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
@@ -128,9 +135,9 @@ export const Keypad: React.FC<KeypadProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View className="px-6 py-4">
       {keys.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
+        <View key={rowIndex} className="flex-row justify-around mb-3">
           {row.map((key, keyIndex) => (
             <KeypadButton
               key={`${rowIndex}-${keyIndex}`}
@@ -144,27 +151,3 @@ export const Keypad: React.FC<KeypadProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing[6],
-    paddingVertical: spacing[4],
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: spacing[3],
-  },
-  button: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background.secondary,
-  },
-  buttonText: {
-    ...typography.displaySmall,
-    color: colors.text.primary,
-  },
-});

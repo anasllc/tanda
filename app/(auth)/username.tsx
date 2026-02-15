@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Keyboard, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, Keyboard, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -7,9 +7,12 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius, layout } from '../../src/theme';
+import { colors } from '../../src/theme';
 import { Button } from '../../src/components/ui';
 import { Header } from '../../src/components/layout';
+import { api } from '../../src/lib/api';
+import { useRegisterUsername } from '../../src/hooks/useProfile';
+import { useUIStore } from '../../src/stores';
 
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
@@ -38,18 +41,20 @@ const XIcon = () => (
   </Svg>
 );
 
-// Simulated taken usernames
-const takenUsernames = ['john', 'jane', 'admin', 'user', 'test'];
-
 export default function UsernameScreen() {
   const router = useRouter();
+  const showToast = useUIStore((state) => state.showToast);
+  const registerUsername = useRegisterUsername();
 
   const [username, setUsername] = useState('');
   const [status, setStatus] = useState<UsernameStatus>('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Debounced availability check
+  // Debounced availability check via API
   useEffect(() => {
+    if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+
     if (username.length < 3) {
       setStatus('idle');
       return;
@@ -64,17 +69,21 @@ export default function UsernameScreen() {
 
     setStatus('checking');
 
-    const timer = setTimeout(() => {
-      // Simulate API check
-      const isTaken = takenUsernames.includes(username.toLowerCase());
-      setStatus(isTaken ? 'taken' : 'available');
+    checkTimerRef.current = setTimeout(async () => {
+      try {
+        const result = await api.checkUsername(username);
+        setStatus(result.available ? 'available' : 'taken');
+      } catch {
+        setStatus('idle');
+      }
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+    };
   }, [username]);
 
   const handleUsernameChange = (text: string) => {
-    // Only allow lowercase letters, numbers, and underscores
     const cleaned = text.toLowerCase().replace(/[^a-z0-9_]/g, '');
     setUsername(cleaned);
   };
@@ -85,11 +94,14 @@ export default function UsernameScreen() {
     Keyboard.dismiss();
     setIsSubmitting(true);
 
-    // Simulate save
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    router.push('/(auth)/set-pin');
-    setIsSubmitting(false);
+    try {
+      await registerUsername.mutateAsync(username);
+      router.push('/(auth)/set-pin');
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed to register username', message: err.message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const dismissKeyboard = () => {
@@ -123,31 +135,40 @@ export default function UsernameScreen() {
     }
   };
 
+  const getStatusTextClass = () => {
+    if (status === 'available') return 'text-body-sm font-inter text-success-main ml-1';
+    if (status === 'taken' || status === 'invalid') return 'text-body-sm font-inter text-error-main ml-1';
+    return 'text-body-sm font-inter text-txt-tertiary ml-1';
+  };
+
   const isValid = status === 'available';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack />
 
-            <View style={styles.content}>
-              <View style={styles.header}>
-                <Text style={styles.title}>Choose a username</Text>
-                <Text style={styles.subtitle}>
+            <View className="flex-1 px-5">
+              <View className="mt-4 mb-8">
+                <Text className="text-headline-lg font-inter-bold text-txt-primary mb-2">
+                  Choose a username
+                </Text>
+                <Text className="text-body-lg font-inter text-txt-secondary">
                   This is how friends will find and pay you
                 </Text>
               </View>
 
-              <View style={styles.form}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.atSymbol}>@</Text>
+              <View className="gap-2">
+                <View className="flex-row items-center h-14 bg-bg-tertiary rounded-xl border border-border px-4">
+                  <Text className="text-body-lg font-inter text-txt-tertiary mr-1">@</Text>
                   <TextInput
-                    style={styles.input}
+                    className="flex-1 h-full text-[16px] text-txt-primary p-0 m-0"
+                    style={{ includeFontPadding: false }}
                     value={username}
                     onChangeText={handleUsernameChange}
                     placeholder="username"
@@ -157,22 +178,16 @@ export default function UsernameScreen() {
                     autoCorrect={false}
                     maxLength={20}
                   />
-                  <View style={styles.statusIcon}>{getStatusIcon()}</View>
+                  <View className="ml-2">{getStatusIcon()}</View>
                 </View>
 
-                <Text
-                  style={[
-                    styles.statusText,
-                    status === 'available' && styles.statusSuccess,
-                    (status === 'taken' || status === 'invalid') && styles.statusError,
-                  ]}
-                >
+                <Text className={getStatusTextClass()}>
                   {getStatusMessage()}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button
                 title="Continue"
                 onPress={handleContinue}
@@ -187,75 +202,3 @@ export default function UsernameScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing[5],
-  },
-  header: {
-    marginTop: spacing[4],
-    marginBottom: spacing[8],
-  },
-  title: {
-    ...typography.headlineLarge,
-    color: colors.text.primary,
-    marginBottom: spacing[2],
-  },
-  subtitle: {
-    ...typography.bodyLarge,
-    color: colors.text.secondary,
-  },
-  form: {
-    gap: spacing[2],
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: layout.inputHeight,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingHorizontal: spacing[4],
-  },
-  atSymbol: {
-    ...typography.bodyLarge,
-    color: colors.text.tertiary,
-    marginRight: spacing[1],
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    fontSize: 16,
-    color: colors.text.primary,
-    padding: 0,
-    margin: 0,
-    includeFontPadding: false,
-  },
-  statusIcon: {
-    marginLeft: spacing[2],
-  },
-  statusText: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    marginLeft: spacing[1],
-  },
-  statusSuccess: {
-    color: colors.success.main,
-  },
-  statusError: {
-    color: colors.error.main,
-  },
-  footer: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[8],
-  },
-});

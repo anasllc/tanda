@@ -1,28 +1,34 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  Animated,
   Keyboard,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Platform,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../../src/theme';
 import { PinInput, Keypad } from '../../src/components/ui';
 import { Header } from '../../src/components/layout';
 import { useAuthStore, useUIStore } from '../../src/stores';
+import { useSetupPin } from '../../src/hooks/usePin';
+import { useAuth } from '../../src/hooks/useAuth';
 import { pinSuccessHaptic } from '../../src/utils/haptics';
 
 type Step = 'create' | 'confirm';
 
 export default function SetPinScreen() {
   const router = useRouter();
-  const login = useAuthStore((state) => state.login);
   const showToast = useUIStore((state) => state.showToast);
+  const setupPin = useSetupPin();
+  const { loadProfile } = useAuth();
 
   const [step, setStep] = useState<Step>('create');
   const [pin, setPin] = useState('');
@@ -30,30 +36,28 @@ export default function SetPinScreen() {
   const [error, setError] = useState(false);
 
   // Animation values for step transition
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const errorOpacity = useRef(new Animated.Value(0)).current;
+  const slideAnim = useSharedValue(0);
+  const errorOpacityValue = useSharedValue(0);
 
   const currentPin = step === 'create' ? pin : confirmPin;
   const setCurrentPin = step === 'create' ? setPin : setConfirmPin;
 
   // Animate step transition
   useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: step === 'create' ? 0 : 1,
-      useNativeDriver: true,
+    slideAnim.value = withSpring(step === 'create' ? 0 : 1, {
       damping: 15,
       stiffness: 100,
-    }).start();
+    });
   }, [step]);
 
   // Animate error visibility
   useEffect(() => {
-    Animated.timing(errorOpacity, {
-      toValue: error ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    errorOpacityValue.value = withTiming(error ? 1 : 0, { duration: 200 });
   }, [error]);
+
+  const errorAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: errorOpacityValue.value,
+  }));
 
   const handleKeyPress = (key: string) => {
     if (currentPin.length < 6) {
@@ -74,14 +78,19 @@ export default function SetPinScreen() {
     } else {
       // Verify PIN matches
       if (completedPin === pin) {
-        await pinSuccessHaptic();
-        showToast({ type: 'success', title: 'PIN created successfully!' });
+        try {
+          await setupPin.mutateAsync(completedPin);
+          await pinSuccessHaptic();
+          showToast({ type: 'success', title: 'PIN created successfully!' });
 
-        // Log user in (for demo)
-        login();
-
-        // Navigate to main app
-        router.replace('/(main)/(home)');
+          // Load full profile and navigate to main app
+          await loadProfile();
+          router.replace('/(main)/(home)');
+        } catch (err: any) {
+          setError(true);
+          setConfirmPin('');
+          showToast({ type: 'error', title: 'Failed to set PIN', message: err.message });
+        }
       } else {
         setError(true);
         setConfirmPin('');
@@ -111,28 +120,28 @@ export default function SetPinScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack onBack={handleBack} />
 
-            <View style={styles.content}>
-              <View style={styles.header}>
-                <Text style={styles.title}>
+            <View className="flex-1 px-5">
+              <View className="mt-4 items-center">
+                <Text className="text-headline-lg font-inter-bold text-txt-primary mb-2 text-center">
                   {step === 'create' ? 'Create your PIN' : 'Confirm your PIN'}
                 </Text>
-                <Text style={styles.subtitle}>
+                <Text className="text-body-lg font-inter text-txt-secondary text-center">
                   {step === 'create'
                     ? "You'll use this to confirm transactions"
                     : 'Enter your PIN again to confirm'}
                 </Text>
               </View>
 
-              <View style={styles.pinContainer}>
+              <View className="items-center mt-12">
                 <PinInput
                   value={currentPin}
                   onChange={setCurrentPin}
@@ -140,17 +149,15 @@ export default function SetPinScreen() {
                 />
 
                 <Animated.Text
-                  style={[
-                    styles.errorText,
-                    { opacity: errorOpacity },
-                  ]}
+                  className="text-body-md font-inter text-error-main mt-4 text-center"
+                  style={errorAnimatedStyle}
                 >
                   PINs don't match. Try again.
                 </Animated.Text>
               </View>
             </View>
 
-            <View style={styles.keypadContainer}>
+            <View className="pb-8">
               <Keypad
                 onKeyPress={handleKeyPress}
                 onDelete={handleDelete}
@@ -162,45 +169,3 @@ export default function SetPinScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing[5],
-  },
-  header: {
-    marginTop: spacing[4],
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.headlineLarge,
-    color: colors.text.primary,
-    marginBottom: spacing[2],
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...typography.bodyLarge,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  pinContainer: {
-    alignItems: 'center',
-    marginTop: spacing[12],
-  },
-  errorText: {
-    ...typography.bodyMedium,
-    color: colors.error.main,
-    marginTop: spacing[4],
-    textAlign: 'center',
-  },
-  keypadContainer: {
-    paddingBottom: spacing[8],
-  },
-});

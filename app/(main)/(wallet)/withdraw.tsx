@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Button, Card } from '../../../src/components/ui';
-import { savedBankAccounts, BankAccount } from '../../../src/mock/bankAccounts';
+import { useBankAccounts, BankAccount } from '../../../src/hooks/useBankAccounts';
+import { useInitiateOfframp } from '../../../src/hooks/useWallet';
 import { useAuthStore, useUIStore } from '../../../src/stores';
 import { formatCurrency, withOpacity, lightHaptic } from '../../../src/utils';
 
@@ -13,11 +14,22 @@ export default function WithdrawScreen() {
   const router = useRouter();
   const balance = useAuthStore((state) => state.balance);
   const showToast = useUIStore((state) => state.showToast);
-  const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(
-    savedBankAccounts.find(a => a.isDefault) || null
-  );
+  const { data: bankAccountsData, isLoading: accountsLoading } = useBankAccounts();
+  const offramp = useInitiateOfframp();
+
+  const bankAccounts = bankAccountsData?.accounts ?? [];
+
+  const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<'select' | 'amount'>('select');
+
+  // Auto-select default account once data loads
+  React.useEffect(() => {
+    if (bankAccounts.length > 0 && !selectedAccount) {
+      const defaultAccount = bankAccounts.find((a) => a.is_default) || null;
+      setSelectedAccount(defaultAccount);
+    }
+  }, [bankAccounts, selectedAccount]);
 
   const handleSelectAccount = (account: BankAccount) => {
     lightHaptic();
@@ -37,16 +49,30 @@ export default function WithdrawScreen() {
         return;
       }
       if (amountNum < 100) {
-        showToast({ type: 'error', title: 'Minimum withdrawal is ₦100' });
+        showToast({ type: 'error', title: 'Minimum withdrawal is \u20A6100' });
         return;
       }
       lightHaptic();
-      showToast({
-        type: 'success',
-        title: 'Withdrawal initiated',
-        message: `${formatCurrency(amountNum)} will be sent to ${selectedAccount.bankName}`
-      });
-      router.back();
+      offramp.mutate(
+        { amountUsdc: amountNum, bankAccountId: selectedAccount.id, pin: '' },
+        {
+          onSuccess: () => {
+            showToast({
+              type: 'success',
+              title: 'Withdrawal initiated',
+              message: `${formatCurrency(amountNum)} will be sent to ${selectedAccount.bank_name}`,
+            });
+            router.back();
+          },
+          onError: (error: any) => {
+            showToast({
+              type: 'error',
+              title: 'Withdrawal failed',
+              message: error?.message || 'Something went wrong',
+            });
+          },
+        }
+      );
     }
   };
 
@@ -68,62 +94,74 @@ export default function WithdrawScreen() {
   const isValidAmount = amount && parseFloat(amount) >= 100 && parseFloat(amount) <= balance;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack title="Withdraw" onBack={handleBack} />
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-              <Card style={styles.balanceCard}>
-                <Text style={styles.balanceLabel}>Available to withdraw</Text>
-                <Text style={styles.balanceAmount}>{formatCurrency(balance)}</Text>
+            <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-4" showsVerticalScrollIndicator={false}>
+              <Card className="items-center mb-6">
+                <Text className="text-body-md font-inter text-txt-secondary mb-1">Available to withdraw</Text>
+                <Text className="text-display-sm font-inter-bold text-txt-primary">{formatCurrency(balance)}</Text>
               </Card>
 
               {step === 'select' ? (
                 <>
-                  <Text style={styles.sectionTitle}>Select Bank Account</Text>
+                  <Text className="text-title-md font-inter-medium text-txt-primary mb-4">Select Bank Account</Text>
 
-                  {savedBankAccounts.map((account) => (
-                    <TouchableOpacity
-                      key={account.id}
-                      style={[
-                        styles.accountCard,
-                        selectedAccount?.id === account.id && styles.accountCardSelected,
-                      ]}
-                      onPress={() => handleSelectAccount(account)}
-                    >
-                      <View style={styles.accountInfo}>
-                        <Text style={styles.bankName}>{account.bankName}</Text>
-                        <Text style={styles.accountNumber}>{account.accountNumber}</Text>
-                        <Text style={styles.accountName}>{account.accountName}</Text>
-                      </View>
-                      {selectedAccount?.id === account.id && (
-                        <View style={styles.checkmark}>
-                          <Text style={styles.checkmarkText}>✓</Text>
+                  {accountsLoading ? (
+                    <View className="py-8 items-center">
+                      <ActivityIndicator color={colors.primary[500]} />
+                    </View>
+                  ) : bankAccounts.length === 0 ? (
+                    <View className="py-8 items-center">
+                      <Text className="text-body-md font-inter text-txt-tertiary mb-4">No bank accounts added yet</Text>
+                    </View>
+                  ) : (
+                    bankAccounts.map((account) => (
+                      <TouchableOpacity
+                        key={account.id}
+                        className={`bg-bg-secondary rounded-2xl border p-4 mb-3 flex-row items-center ${
+                          selectedAccount?.id === account.id
+                            ? 'border-accent-500'
+                            : 'border-border'
+                        }`}
+                        style={selectedAccount?.id === account.id ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
+                        onPress={() => handleSelectAccount(account)}
+                      >
+                        <View className="flex-1">
+                          <Text className="text-title-sm font-inter-medium text-txt-primary">{account.bank_name}</Text>
+                          <Text className="text-body-md font-inter text-txt-secondary mt-0.5">{account.account_number}</Text>
+                          <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">{account.account_name}</Text>
                         </View>
-                      )}
-                    </TouchableOpacity>
-                  ))}
+                        {selectedAccount?.id === account.id && (
+                          <View className="w-6 h-6 rounded-full bg-accent-500 items-center justify-center">
+                            <Text className="text-white font-bold">{'\u2713'}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  )}
 
-                  <TouchableOpacity style={styles.addButton} onPress={handleAddAccount}>
-                    <Text style={styles.addButtonText}>+ Add New Bank Account</Text>
+                  <TouchableOpacity className="items-center py-4" onPress={handleAddAccount}>
+                    <Text className="text-label-lg font-inter-medium text-accent-500">+ Add New Bank Account</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <Card style={styles.selectedBankCard}>
-                    <Text style={styles.selectedBankLabel}>Sending to</Text>
-                    <Text style={styles.selectedBankName}>{selectedAccount?.bankName}</Text>
-                    <Text style={styles.selectedAccountNumber}>{selectedAccount?.accountNumber}</Text>
+                  <Card className="mb-6">
+                    <Text className="text-body-sm font-inter text-txt-tertiary mb-1">Sending to</Text>
+                    <Text className="text-title-md font-inter-medium text-txt-primary">{selectedAccount?.bank_name}</Text>
+                    <Text className="text-body-md font-inter text-txt-secondary mt-0.5">{selectedAccount?.account_number}</Text>
                   </Card>
 
-                  <Text style={styles.sectionTitle}>Enter Amount</Text>
+                  <Text className="text-title-md font-inter-medium text-txt-primary mb-4">Enter Amount</Text>
                   <TextInput
-                    style={styles.amountInput}
+                    className="bg-bg-tertiary rounded-xl border border-border px-4 text-txt-primary text-center h-16 text-2xl font-semibold mb-4"
                     value={amount}
                     onChangeText={setAmount}
                     placeholder="0.00"
@@ -132,14 +170,23 @@ export default function WithdrawScreen() {
                     autoFocus
                   />
 
-                  <View style={styles.quickAmounts}>
+                  <View className="flex-row flex-wrap gap-2">
                     {quickAmounts.map((value) => (
                       <TouchableOpacity
                         key={value}
-                        style={[styles.quickAmount, amount === value.toString() && styles.quickAmountSelected]}
+                        className={`rounded-lg px-4 py-2 border ${
+                          amount === value.toString()
+                            ? 'border-accent-500'
+                            : 'bg-bg-secondary border-border'
+                        }`}
+                        style={amount === value.toString() ? { backgroundColor: withOpacity(colors.primary[500], 0.12) } : undefined}
                         onPress={() => { lightHaptic(); setAmount(value.toString()); }}
                       >
-                        <Text style={[styles.quickAmountText, amount === value.toString() && styles.quickAmountTextSelected]}>
+                        <Text className={`text-label-lg font-inter-medium ${
+                          amount === value.toString()
+                            ? 'text-accent-500'
+                            : 'text-txt-secondary'
+                        }`}>
                           {formatCurrency(value)}
                         </Text>
                       </TouchableOpacity>
@@ -149,12 +196,12 @@ export default function WithdrawScreen() {
               )}
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button
-                title={step === 'select' ? 'Continue' : 'Withdraw'}
+                title={step === 'select' ? 'Continue' : offramp.isPending ? 'Processing...' : 'Withdraw'}
                 onPress={handleContinue}
                 fullWidth
-                disabled={step === 'select' ? !selectedAccount : !isValidAmount}
+                disabled={step === 'select' ? !selectedAccount : !isValidAmount || offramp.isPending}
               />
             </View>
           </View>
@@ -163,35 +210,3 @@ export default function WithdrawScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  balanceCard: { alignItems: 'center', marginBottom: spacing[6] },
-  balanceLabel: { ...typography.bodyMedium, color: colors.text.secondary, marginBottom: spacing[1] },
-  balanceAmount: { ...typography.displaySmall, color: colors.text.primary },
-  sectionTitle: { ...typography.titleMedium, color: colors.text.primary, marginBottom: spacing[4] },
-  accountCard: { backgroundColor: colors.background.secondary, borderRadius: borderRadius['2xl'], borderWidth: 1, borderColor: colors.border.default, padding: spacing[4], marginBottom: spacing[3], flexDirection: 'row', alignItems: 'center' },
-  accountCardSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.06) },
-  accountInfo: { flex: 1 },
-  bankName: { ...typography.titleSmall, color: colors.text.primary },
-  accountNumber: { ...typography.bodyMedium, color: colors.text.secondary, marginTop: 2 },
-  accountName: { ...typography.bodySmall, color: colors.text.tertiary, marginTop: 2 },
-  checkmark: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.primary[500], alignItems: 'center', justifyContent: 'center' },
-  checkmarkText: { color: colors.white, fontWeight: '700' },
-  addButton: { alignItems: 'center', paddingVertical: spacing[4] },
-  addButtonText: { ...typography.labelLarge, color: colors.primary[500] },
-  selectedBankCard: { marginBottom: spacing[6] },
-  selectedBankLabel: { ...typography.bodySmall, color: colors.text.tertiary, marginBottom: spacing[1] },
-  selectedBankName: { ...typography.titleMedium, color: colors.text.primary },
-  selectedAccountNumber: { ...typography.bodyMedium, color: colors.text.secondary, marginTop: 2 },
-  amountInput: { backgroundColor: colors.background.tertiary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], fontSize: 24, fontWeight: '600', color: colors.text.primary, height: 64, textAlign: 'center', marginBottom: spacing[4] },
-  quickAmounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  quickAmount: { backgroundColor: colors.background.secondary, borderRadius: borderRadius.lg, paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderWidth: 1, borderColor: colors.border.default },
-  quickAmountSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.12) },
-  quickAmountText: { ...typography.labelLarge, color: colors.text.secondary },
-  quickAmountTextSelected: { color: colors.primary[500] },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[8] },
-});

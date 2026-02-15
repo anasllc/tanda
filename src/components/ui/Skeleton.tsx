@@ -1,5 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, ViewStyle, Animated } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ViewStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, borderRadius } from '../../theme';
 
@@ -16,29 +23,26 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius: customBorderRadius = borderRadius.md,
   style,
 }) => {
-  const shimmerPosition = useRef(new Animated.Value(0)).current;
+  const shimmerPosition = useSharedValue(0);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(shimmerPosition, {
-        toValue: 1,
-        duration: 1500,
-        useNativeDriver: true,
-      })
+    shimmerPosition.value = withRepeat(
+      withTiming(1, { duration: 1500, easing: Easing.linear }),
+      -1,
+      false
     );
-    animation.start();
-    return () => animation.stop();
   }, []);
 
-  const translateX = shimmerPosition.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-200, 200],
-  });
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: -200 + shimmerPosition.value * 400 },
+    ],
+  }));
 
   return (
     <View
+      className="bg-bg-tertiary overflow-hidden"
       style={[
-        styles.container,
         {
           width: width as any,
           height,
@@ -47,7 +51,10 @@ export const Skeleton: React.FC<SkeletonProps> = ({
         style,
       ]}
     >
-      <Animated.View style={[styles.shimmer, { transform: [{ translateX }] }]}>
+      <Animated.View
+        className="absolute top-0 left-0 right-0 bottom-0"
+        style={[{ width: 200 }, shimmerStyle]}
+      >
         <LinearGradient
           colors={[
             'transparent',
@@ -56,7 +63,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={styles.gradient}
+          style={{ flex: 1, width: '100%' }}
         />
       </Animated.View>
     </View>
@@ -89,10 +96,10 @@ export const SkeletonAvatar: React.FC<{ size?: number }> = ({ size = 44 }) => (
 );
 
 export const SkeletonCard: React.FC = () => (
-  <View style={styles.card}>
-    <View style={styles.cardHeader}>
+  <View className="bg-bg-secondary rounded-2xl p-4 border border-border">
+    <View className="flex-row items-center mb-4">
       <SkeletonAvatar />
-      <View style={styles.cardHeaderText}>
+      <View className="ml-3 flex-1">
         <Skeleton width={120} height={16} />
         <Skeleton width={80} height={14} style={{ marginTop: 4 }} />
       </View>
@@ -102,56 +109,12 @@ export const SkeletonCard: React.FC = () => (
 );
 
 export const SkeletonListItem: React.FC = () => (
-  <View style={styles.listItem}>
+  <View className="flex-row items-center py-3">
     <SkeletonAvatar />
-    <View style={styles.listItemContent}>
+    <View className="flex-1 ml-3">
       <Skeleton width="70%" height={16} />
       <Skeleton width="50%" height={14} style={{ marginTop: 4 }} />
     </View>
     <Skeleton width={60} height={16} />
   </View>
 );
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background.tertiary,
-    overflow: 'hidden',
-  },
-  shimmer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: 200,
-  },
-  gradient: {
-    flex: 1,
-    width: '100%',
-  },
-  card: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius['2xl'],
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardHeaderText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  listItemContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-});

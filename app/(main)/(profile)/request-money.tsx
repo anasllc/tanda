@@ -1,30 +1,31 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Avatar, Button, Card, SearchBar } from '../../../src/components/ui';
-import { otherUsers } from '../../../src/mock/users';
+import { useSearchUsers, SearchResult } from '../../../src/hooks/useContacts';
+import { api } from '../../../src/lib/api';
 import { useUIStore } from '../../../src/stores';
-import { lightHaptic, formatCurrency, withOpacity } from '../../../src/utils';
+import { lightHaptic } from '../../../src/utils/haptics';
+import { formatCurrency } from '../../../src/utils/formatters';
 import Svg, { Path } from 'react-native-svg';
 
 export default function RequestMoneyScreen() {
   const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState<typeof otherUsers[0] | null>(null);
+  const [selectedUser, setSelectedUser] = useState<SearchResult | null>(null);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [step, setStep] = useState<'select' | 'amount'>('select');
+  const [submitting, setSubmitting] = useState(false);
 
-  const filteredUsers = otherUsers.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const { data: searchData, isLoading: isSearching } = useSearchUsers(searchQuery);
+  const users = searchData?.users ?? [];
 
-  const handleSelectUser = (user: typeof otherUsers[0]) => {
+  const handleSelectUser = (user: SearchResult) => {
     lightHaptic();
     setSelectedUser(user);
     setStep('amount');
@@ -40,75 +41,97 @@ export default function RequestMoneyScreen() {
     }
   };
 
-  const handleRequest = () => {
+  const handleRequest = async () => {
     if (!selectedUser || !amount) return;
     lightHaptic();
-    showToast({
-      type: 'success',
-      title: 'Request sent!',
-      message: `Requested ${formatCurrency(parseFloat(amount))} from ${selectedUser.name}`
-    });
-    router.back();
+    setSubmitting(true);
+    try {
+      await api.requestMoney(selectedUser.id, parseFloat(amount), note || undefined);
+      showToast({
+        type: 'success',
+        title: 'Request sent!',
+        message: `Requested ${formatCurrency(parseFloat(amount))} from ${selectedUser.display_name}`
+      });
+      router.back();
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Request failed',
+        message: 'Could not send money request. Please try again.'
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isValid = amount && parseFloat(amount) >= 100;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Header showBack title="Request Money" onBack={handleBack} />
 
         {step === 'select' ? (
-          <View style={styles.selectContent}>
+          <View className="flex-1 px-5 pt-4">
             <SearchBar
               placeholder="Search contacts"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
 
-            <Text style={styles.sectionTitle}>
-              {searchQuery ? 'Search Results' : 'Recent Contacts'}
+            <Text className="text-title-sm font-inter-medium text-txt-primary mt-4 mb-3">
+              {searchQuery ? 'Search Results' : 'Search for a user'}
             </Text>
 
-            <ScrollView style={styles.usersList} showsVerticalScrollIndicator={false}>
-              {filteredUsers.map(user => (
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              {isSearching && searchQuery.length >= 2 && (
+                <View className="py-8 items-center">
+                  <ActivityIndicator size="small" />
+                </View>
+              )}
+              {users.map(user => (
                 <TouchableOpacity
                   key={user.id}
-                  style={styles.userCard}
+                  className="flex-row items-center py-3 border-b border-border"
                   onPress={() => handleSelectUser(user)}
                   activeOpacity={0.7}
                 >
-                  <Avatar name={user.name} image={user.avatar} size="medium" />
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{user.name}</Text>
-                    <Text style={styles.userUsername}>@{user.username}</Text>
+                  <Avatar name={user.display_name} source={user.avatar_url} size="medium" />
+                  <View className="flex-1 ml-3">
+                    <Text className="text-body-lg font-inter text-txt-primary">{user.display_name}</Text>
+                    <Text className="text-body-sm font-inter text-txt-tertiary">@{user.username}</Text>
                   </View>
                   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                     <Path d="M9 18L15 12L9 6" stroke={colors.text.tertiary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 </TouchableOpacity>
               ))}
+              {searchQuery.length >= 2 && !isSearching && users.length === 0 && (
+                <Text className="text-body-md font-inter text-txt-tertiary text-center py-8">
+                  No users found
+                </Text>
+              )}
             </ScrollView>
           </View>
         ) : (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.amountContent}>
-              <Card style={styles.recipientCard}>
-                <View style={styles.recipientRow}>
-                  <Avatar name={selectedUser?.name || ''} size="medium" />
-                  <View style={styles.recipientInfo}>
-                    <Text style={styles.recipientName}>{selectedUser?.name}</Text>
-                    <Text style={styles.recipientUsername}>@{selectedUser?.username}</Text>
+            <View className="flex-1 px-5 pt-4">
+              <Card className="mb-6">
+                <View className="flex-row items-center">
+                  <Avatar name={selectedUser?.display_name || ''} size="medium" />
+                  <View className="ml-3">
+                    <Text className="text-title-md font-inter-medium text-txt-primary">{selectedUser?.display_name}</Text>
+                    <Text className="text-body-sm font-inter text-txt-tertiary">@{selectedUser?.username}</Text>
                   </View>
                 </View>
               </Card>
 
-              <Text style={styles.amountLabel}>Enter Amount</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2">Enter Amount</Text>
               <TextInput
-                style={styles.amountInput}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 text-[24px] font-semibold text-txt-primary h-16 text-center mb-6"
                 value={amount}
                 onChangeText={setAmount}
                 placeholder="0.00"
@@ -117,9 +140,10 @@ export default function RequestMoneyScreen() {
                 autoFocus
               />
 
-              <Text style={styles.noteLabel}>Add a note (optional)</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2">Add a note (optional)</Text>
               <TextInput
-                style={styles.noteInput}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 py-4 text-[16px] text-txt-primary h-[100px]"
+                style={{ textAlignVertical: 'top' }}
                 value={note}
                 onChangeText={setNote}
                 placeholder="What's this for?"
@@ -127,12 +151,12 @@ export default function RequestMoneyScreen() {
                 multiline
               />
 
-              <View style={styles.footer}>
+              <View className="flex-1 justify-end pb-8">
                 <Button
-                  title="Send Request"
+                  title={submitting ? "Sending..." : "Send Request"}
                   onPress={handleRequest}
                   fullWidth
-                  disabled={!isValid}
+                  disabled={!isValid || submitting}
                 />
               </View>
             </View>
@@ -142,26 +166,3 @@ export default function RequestMoneyScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  selectContent: { flex: 1, paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  sectionTitle: { ...typography.titleSmall, color: colors.text.primary, marginTop: spacing[4], marginBottom: spacing[3] },
-  usersList: { flex: 1 },
-  userCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], borderBottomWidth: 1, borderBottomColor: colors.border.default },
-  userInfo: { flex: 1, marginLeft: spacing[3] },
-  userName: { ...typography.bodyLarge, color: colors.text.primary },
-  userUsername: { ...typography.bodySmall, color: colors.text.tertiary },
-  amountContent: { flex: 1, paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  recipientCard: { marginBottom: spacing[6] },
-  recipientRow: { flexDirection: 'row', alignItems: 'center' },
-  recipientInfo: { marginLeft: spacing[3] },
-  recipientName: { ...typography.titleMedium, color: colors.text.primary },
-  recipientUsername: { ...typography.bodySmall, color: colors.text.tertiary },
-  amountLabel: { ...typography.labelLarge, color: colors.text.secondary, marginBottom: spacing[2] },
-  amountInput: { backgroundColor: colors.background.tertiary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], fontSize: 24, fontWeight: '600', color: colors.text.primary, height: 64, textAlign: 'center', marginBottom: spacing[6] },
-  noteLabel: { ...typography.labelLarge, color: colors.text.secondary, marginBottom: spacing[2] },
-  noteInput: { backgroundColor: colors.background.tertiary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], paddingVertical: spacing[4], fontSize: 16, color: colors.text.primary, height: 100, textAlignVertical: 'top' },
-  footer: { flex: 1, justifyContent: 'flex-end', paddingBottom: spacing[8] },
-});

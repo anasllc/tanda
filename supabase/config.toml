@@ -1,0 +1,36 @@
+[project]
+id = "tanda"
+
+[api]
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "https://app.tanda.co"
+additional_redirect_urls = ["exp://", "tanda://"]
+jwt_expiry = 3600
+enable_signup = false
+
+[functions.onramp-webhook]
+verify_jwt = false
+
+[functions.offramp-webhook]
+verify_jwt = false
+
+[functions.kyc-webhook]
+verify_jwt = false
+
+[functions.claim-payment]
+verify_jwt = false
+
+[functions.escrow-expiry-cron]
+verify_jwt = false

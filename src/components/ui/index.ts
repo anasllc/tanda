@@ -36,3 +36,13 @@ export { CountryPicker, countries } from './CountryPicker';
 export type { Country } from './CountryPicker';
 
 export { NetworkBadge } from './NetworkBadge';
+
+export { FadeInView, ScaleInView, SlideInView, FadeView } from './AnimatedComponents';
+
+export { AnimatedNumber } from './AnimatedNumber';
+
+export { GlowCard } from './GlowCard';
+
+export { GradientBorder } from './GradientBorder';
+
+export { SectionHeader } from './SectionHeader';

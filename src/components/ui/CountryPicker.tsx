@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   FlatList,
   Modal,
+  StyleSheet,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius, layout } from '../../theme';
+import { colors } from '../../theme';
 import { SearchBar } from './SearchBar';
 import { lightHaptic } from '../../utils/haptics';
 
@@ -21,14 +21,14 @@ export interface Country {
 }
 
 const countries: Country[] = [
-  { code: 'NG', name: 'Nigeria', dialCode: '+234', flag: '🇳🇬' },
-  { code: 'GH', name: 'Ghana', dialCode: '+233', flag: '🇬🇭' },
-  { code: 'KE', name: 'Kenya', dialCode: '+254', flag: '🇰🇪' },
-  { code: 'ZA', name: 'South Africa', dialCode: '+27', flag: '🇿🇦' },
-  { code: 'US', name: 'United States', dialCode: '+1', flag: '🇺🇸' },
-  { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧' },
-  { code: 'CA', name: 'Canada', dialCode: '+1', flag: '🇨🇦' },
-  { code: 'AE', name: 'United Arab Emirates', dialCode: '+971', flag: '🇦🇪' },
+  { code: 'NG', name: 'Nigeria', dialCode: '+234', flag: '\u{1F1F3}\u{1F1EC}' },
+  { code: 'GH', name: 'Ghana', dialCode: '+233', flag: '\u{1F1EC}\u{1F1ED}' },
+  { code: 'KE', name: 'Kenya', dialCode: '+254', flag: '\u{1F1F0}\u{1F1EA}' },
+  { code: 'ZA', name: 'South Africa', dialCode: '+27', flag: '\u{1F1FF}\u{1F1E6}' },
+  { code: 'US', name: 'United States', dialCode: '+1', flag: '\u{1F1FA}\u{1F1F8}' },
+  { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '\u{1F1EC}\u{1F1E7}' },
+  { code: 'CA', name: 'Canada', dialCode: '+1', flag: '\u{1F1E8}\u{1F1E6}' },
+  { code: 'AE', name: 'United Arab Emirates', dialCode: '+971', flag: '\u{1F1E6}\u{1F1EA}' },
 ];
 
 interface CountryPickerProps {
@@ -70,16 +70,15 @@ export const CountryPicker: React.FC<CountryPickerProps> = ({
 
   const renderCountryItem = ({ item }: { item: Country }) => (
     <TouchableOpacity
-      style={[
-        styles.countryItem,
-        item.code === selectedCountry.code && styles.countryItemSelected,
-      ]}
+      className={`flex-row items-center py-3 px-3 rounded-lg
+        ${item.code === selectedCountry.code ? 'bg-accent-500/20' : ''}
+      `}
       onPress={() => handleSelect(item)}
     >
-      <Text style={styles.flag}>{item.flag}</Text>
-      <View style={styles.countryInfo}>
-        <Text style={styles.countryName}>{item.name}</Text>
-        <Text style={styles.dialCode}>{item.dialCode}</Text>
+      <Text className="text-2xl mr-3">{item.flag}</Text>
+      <View className="flex-1">
+        <Text className="text-body-lg font-inter text-txt-primary">{item.name}</Text>
+        <Text className="text-body-sm font-inter text-txt-secondary mt-0.5">{item.dialCode}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -87,11 +86,11 @@ export const CountryPicker: React.FC<CountryPickerProps> = ({
   return (
     <>
       <TouchableOpacity
-        style={styles.selector}
+        className="flex-row items-center bg-bg-tertiary px-3 py-2 rounded-lg border border-border gap-2"
         onPress={() => setIsOpen(true)}
       >
-        <Text style={styles.selectorFlag}>{selectedCountry.flag}</Text>
-        <Text style={styles.selectorDialCode}>{selectedCountry.dialCode}</Text>
+        <Text className="text-xl">{selectedCountry.flag}</Text>
+        <Text className="text-body-lg font-inter text-txt-primary">{selectedCountry.dialCode}</Text>
         <ChevronDown />
       </TouchableOpacity>
 
@@ -101,16 +100,18 @@ export const CountryPicker: React.FC<CountryPickerProps> = ({
         animationType="slide"
         onRequestClose={() => setIsOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View className="flex-1 justify-end">
           <BlurView intensity={20} style={StyleSheet.absoluteFill} />
           <TouchableOpacity
-            style={styles.modalBackdrop}
+            style={StyleSheet.absoluteFillObject}
             onPress={() => setIsOpen(false)}
             activeOpacity={1}
           />
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Select Country</Text>
+          <View className="bg-bg-elevated rounded-t-3xl px-5 pb-8 max-h-[70%]">
+            <View className="w-9 h-1 bg-border-light rounded-sm self-center mt-3 mb-4" />
+            <Text className="text-headline-sm font-inter-semibold text-txt-primary mb-4">
+              Select Country
+            </Text>
 
             <SearchBar
               value={searchQuery}
@@ -122,7 +123,7 @@ export const CountryPicker: React.FC<CountryPickerProps> = ({
               data={filteredCountries}
               renderItem={renderCountryItem}
               keyExtractor={(item) => item.code}
-              style={styles.list}
+              className="mt-4"
               showsVerticalScrollIndicator={false}
             />
           </View>
@@ -131,84 +132,5 @@ export const CountryPicker: React.FC<CountryPickerProps> = ({
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  selector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.tertiary,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    gap: spacing[2],
-  },
-  selectorFlag: {
-    fontSize: 20,
-  },
-  selectorDialCode: {
-    ...typography.bodyLarge,
-    color: colors.text.primary,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalContent: {
-    backgroundColor: colors.background.elevated,
-    borderTopLeftRadius: borderRadius['3xl'],
-    borderTopRightRadius: borderRadius['3xl'],
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[8],
-    maxHeight: '70%',
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    backgroundColor: colors.border.light,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: spacing[3],
-    marginBottom: spacing[4],
-  },
-  modalTitle: {
-    ...typography.headlineSmall,
-    color: colors.text.primary,
-    marginBottom: spacing[4],
-  },
-  list: {
-    marginTop: spacing[4],
-  },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[3],
-    borderRadius: borderRadius.lg,
-  },
-  countryItemSelected: {
-    backgroundColor: colors.primary[500] + '20',
-  },
-  flag: {
-    fontSize: 24,
-    marginRight: spacing[3],
-  },
-  countryInfo: {
-    flex: 1,
-  },
-  countryName: {
-    ...typography.bodyLarge,
-    color: colors.text.primary,
-  },
-  dialCode: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-});
 
 export { countries };

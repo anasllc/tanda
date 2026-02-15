@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { useRouter } from 'expo-router';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
-import { Button, NetworkBadge } from '../../../src/components/ui';
+import { Button, NetworkBadge, PinInput, Keypad } from '../../../src/components/ui';
 import { networks, airtimeQuickAmounts, NetworkProvider } from '../../../src/mock/services';
 import { formatCurrency, lightHaptic, withOpacity } from '../../../src/utils';
 import { useUIStore } from '../../../src/stores';
+import { useBuyAirtime } from '../../../src/hooks/useBills';
 
 export default function AirtimeScreen() {
+  const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
+  const buyAirtime = useBuyAirtime();
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkProvider>('mtn');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [amount, setAmount] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState(false);
 
   const handleNetworkSelect = (network: NetworkProvider) => {
     lightHaptic();
@@ -28,40 +35,122 @@ export default function AirtimeScreen() {
 
   const handleContinue = () => {
     if (!isValid) return;
-    showToast({
-      type: 'success',
-      title: `Purchasing ${formatCurrency(parseFloat(amount))} airtime for ${phoneNumber}`
-    });
+    setShowPin(true);
   };
 
+  const handlePinComplete = async (enteredPin: string) => {
+    try {
+      await buyAirtime.mutateAsync({
+        phone: phoneNumber,
+        network: selectedNetwork,
+        amountLocal: parseFloat(amount),
+        pin: enteredPin,
+      });
+      showToast({
+        type: 'success',
+        title: 'Airtime purchased successfully',
+        message: `${formatCurrency(parseFloat(amount))} airtime for ${phoneNumber}`,
+      });
+      router.back();
+    } catch (err: any) {
+      if (err.code === 'INVALID_PIN') {
+        setPinError(true);
+        setPin('');
+      } else {
+        showToast({ type: 'error', title: 'Purchase failed', message: err.message });
+        setShowPin(false);
+        setPin('');
+      }
+    }
+  };
+
+  const handleKeyPress = (key: string) => {
+    if (pin.length < 6) {
+      const newPin = pin + key;
+      setPin(newPin);
+      setPinError(false);
+      if (newPin.length === 6) {
+        handlePinComplete(newPin);
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    setPin(pin.slice(0, -1));
+    setPinError(false);
+  };
+
+  if (showPin) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-primary">
+        <Header showBack title="Enter PIN" onBack={() => { setShowPin(false); setPin(''); }} />
+
+        <View className="flex-1 items-center pt-8">
+          <Text className="text-headline-sm font-inter-semibold text-txt-primary mb-2">
+            Enter your PIN to confirm
+          </Text>
+          <Text className="text-body-md font-inter text-txt-secondary mb-8">
+            Purchasing {formatCurrency(parseFloat(amount))} airtime
+          </Text>
+
+          <View className="mb-4">
+            <PinInput
+              value={pin}
+              onChange={setPin}
+              error={pinError}
+              disabled={buyAirtime.isPending}
+            />
+          </View>
+
+          {pinError && (
+            <Text className="text-body-md font-inter text-error-main">
+              Incorrect PIN. Please try again.
+            </Text>
+          )}
+        </View>
+
+        <Keypad
+          onKeyPress={handleKeyPress}
+          onDelete={handleDelete}
+          disabled={buyAirtime.isPending}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack title="Buy Airtime" />
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Select Network</Text>
-              <View style={styles.networks}>
+            <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-4" showsVerticalScrollIndicator={false}>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Select Network</Text>
+              <View className="flex-row gap-3">
                 {networks.map((network) => (
                   <TouchableOpacity
                     key={network.id}
-                    style={[styles.networkCard, selectedNetwork === network.id && styles.networkCardSelected]}
+                    className={`flex-1 rounded-xl border p-3 items-center ${
+                      selectedNetwork === network.id
+                        ? 'border-accent-500'
+                        : 'bg-bg-secondary border-border'
+                    }`}
+                    style={selectedNetwork === network.id ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
                     onPress={() => handleNetworkSelect(network.id)}
                   >
                     <NetworkBadge network={network.id} showLabel={false} size="medium" />
-                    <Text style={styles.networkName}>{network.name}</Text>
+                    <Text className="text-label-md font-inter-medium text-txt-primary mt-2">{network.name}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.label}>Phone Number</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Phone Number</Text>
               <TextInput
-                style={styles.input}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 placeholder="0812 345 6789"
@@ -70,9 +159,9 @@ export default function AirtimeScreen() {
                 maxLength={11}
               />
 
-              <Text style={styles.label}>Amount</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Amount</Text>
               <TextInput
-                style={styles.input}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                 value={amount}
                 onChangeText={setAmount}
                 placeholder="Enter amount"
@@ -80,14 +169,21 @@ export default function AirtimeScreen() {
                 keyboardType="numeric"
               />
 
-              <View style={styles.quickAmounts}>
+              <View className="flex-row flex-wrap gap-2 mt-4">
                 {airtimeQuickAmounts.map((item) => (
                   <TouchableOpacity
                     key={item.amount}
-                    style={[styles.quickAmount, amount === item.amount.toString() && styles.quickAmountSelected]}
+                    className={`rounded-lg px-4 py-2 border ${
+                      amount === item.amount.toString()
+                        ? 'border-accent-500'
+                        : 'bg-bg-secondary border-border'
+                    }`}
+                    style={amount === item.amount.toString() ? { backgroundColor: withOpacity(colors.primary[500], 0.12) } : undefined}
                     onPress={() => handleQuickAmount(item.amount)}
                   >
-                    <Text style={[styles.quickAmountText, amount === item.amount.toString() && styles.quickAmountTextSelected]}>
+                    <Text className={`text-label-lg font-inter-medium ${
+                      amount === item.amount.toString() ? 'text-accent-500' : 'text-txt-secondary'
+                    }`}>
                       {formatCurrency(item.amount)}
                     </Text>
                   </TouchableOpacity>
@@ -95,7 +191,7 @@ export default function AirtimeScreen() {
               </View>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button title="Continue" onPress={handleContinue} fullWidth disabled={!isValid} />
             </View>
           </View>
@@ -104,22 +200,3 @@ export default function AirtimeScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  label: { ...typography.labelLarge, color: colors.text.secondary, marginBottom: spacing[2], marginTop: spacing[4] },
-  networks: { flexDirection: 'row', gap: spacing[3] },
-  networkCard: { flex: 1, backgroundColor: colors.background.secondary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3], alignItems: 'center' },
-  networkCardSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.06) },
-  networkName: { ...typography.labelMedium, color: colors.text.primary, marginTop: spacing[2] },
-  input: { backgroundColor: colors.background.tertiary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], paddingVertical: 0, fontSize: 16, color: colors.text.primary, height: layout.inputHeight },
-  quickAmounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[4] },
-  quickAmount: { backgroundColor: colors.background.secondary, borderRadius: borderRadius.lg, paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderWidth: 1, borderColor: colors.border.default },
-  quickAmountSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.12) },
-  quickAmountText: { ...typography.labelLarge, color: colors.text.secondary },
-  quickAmountTextSelected: { color: colors.primary[500] },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[8] },
-});

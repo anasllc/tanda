@@ -3,13 +3,12 @@ import {
   View,
   TextInput,
   Text,
-  StyleSheet,
   TextInputProps,
   ViewStyle,
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { colors, typography, spacing, borderRadius, layout } from '../../theme';
+import { colors } from '../../theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -48,46 +47,55 @@ export const Input = forwardRef<TextInput, InputProps>(({
     onBlur?.(e);
   };
 
-  const getBorderColor = () => {
-    if (error) return colors.error.main;
-    if (isFocused) return colors.primary[500];
-    return colors.border.default;
-  };
+  const borderColor = error
+    ? colors.error.main
+    : isFocused
+      ? colors.border.focus
+      : colors.border.default;
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View className="mb-4" style={containerStyle}>
+      {label && (
+        <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2">
+          {label}
+        </Text>
+      )}
 
       <View
-        style={[
-          styles.inputContainer,
-          { borderColor: getBorderColor() },
-          error && styles.inputError,
-          disabled && styles.inputDisabled,
-        ]}
+        className={`flex-row items-center h-14 bg-bg-tertiary rounded-xl px-4 border ${disabled ? 'opacity-60 bg-bg-secondary' : ''}`}
+        style={{
+          borderColor,
+          ...(isFocused && !error ? {
+            shadowColor: colors.border.focus,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+          } : {}),
+        }}
       >
-        {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+        {leftIcon && <View className="mr-3">{leftIcon}</View>}
 
         <TextInput
           ref={ref}
-          style={[
-            styles.input,
-            leftIcon && { paddingLeft: 0 },
-            rightIcon && { paddingRight: 0 },
-            style,
-          ]}
+          className="flex-1 h-full text-body-lg text-txt-primary p-0 m-0"
           placeholderTextColor={colors.text.tertiary}
           onFocus={handleFocus}
           onBlur={handleBlur}
           editable={!disabled}
           textAlignVertical="center"
+          style={[
+            leftIcon ? { paddingLeft: 0 } : undefined,
+            rightIcon ? { paddingRight: 0 } : undefined,
+            Platform.OS === 'android' ? { textAlignVertical: 'center' } : {},
+            style,
+          ]}
           {...props}
         />
 
         {rightIcon && (
           <TouchableOpacity
             onPress={onRightIconPress}
-            style={styles.rightIcon}
+            className="ml-3"
             disabled={!onRightIconPress}
           >
             {rightIcon}
@@ -96,7 +104,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
       </View>
 
       {(error || hint) && (
-        <Text style={[styles.helperText, error && styles.errorText]}>
+        <Text className={`text-body-sm mt-1 ml-1 ${error ? 'text-error-main' : 'text-txt-tertiary'}`}>
           {error || hint}
         </Text>
       )}
@@ -105,56 +113,3 @@ export const Input = forwardRef<TextInput, InputProps>(({
 });
 
 Input.displayName = 'Input';
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing[4],
-  },
-  label: {
-    ...typography.labelLarge,
-    color: colors.text.secondary,
-    marginBottom: spacing[2],
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: layout.inputHeight,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingHorizontal: spacing[4],
-  },
-  inputError: {
-    borderColor: colors.error.main,
-  },
-  inputDisabled: {
-    backgroundColor: colors.background.secondary,
-    opacity: 0.6,
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    fontSize: 16,
-    color: colors.text.primary,
-    padding: 0,
-    margin: 0,
-    includeFontPadding: false,
-    ...(Platform.OS === 'android' ? { textAlignVertical: 'center' } : {}),
-  },
-  leftIcon: {
-    marginRight: spacing[3],
-  },
-  rightIcon: {
-    marginLeft: spacing[3],
-  },
-  helperText: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    marginTop: spacing[1],
-    marginLeft: spacing[1],
-  },
-  errorText: {
-    color: colors.error.main,
-  },
-});

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, typography, spacing } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Card, Divider } from '../../../src/components/ui';
 import { useUIStore } from '../../../src/stores';
@@ -33,29 +33,29 @@ export default function SecurityScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Security" />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4">
         <Card>
-          <View style={styles.row}>
-            <View style={styles.rowInfo}>
-              <Text style={styles.rowTitle}>Biometric Login</Text>
-              <Text style={styles.rowDesc}>Use Face ID or fingerprint</Text>
+          <View className="flex-row items-center py-4">
+            <View className="flex-1">
+              <Text className="text-body-lg font-inter text-txt-primary">Biometric Login</Text>
+              <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">Use Face ID or fingerprint</Text>
             </View>
             <Switch value={biometrics} onValueChange={handleBiometricsChange} trackColor={{ true: colors.primary[500] }} />
           </View>
           <Divider spacing={0} />
-          <TouchableOpacity style={styles.row} onPress={handleChangePIN}>
-            <View style={styles.rowInfo}>
-              <Text style={styles.rowTitle}>Change PIN</Text>
-              <Text style={styles.rowDesc}>Update your transaction PIN</Text>
+          <TouchableOpacity className="flex-row items-center py-4" onPress={handleChangePIN}>
+            <View className="flex-1">
+              <Text className="text-body-lg font-inter text-txt-primary">Change PIN</Text>
+              <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">Update your transaction PIN</Text>
             </View>
           </TouchableOpacity>
           <Divider spacing={0} />
-          <TouchableOpacity style={styles.row} onPress={handleChangePassword}>
-            <View style={styles.rowInfo}>
-              <Text style={styles.rowTitle}>Change Password</Text>
-              <Text style={styles.rowDesc}>Update your account password</Text>
+          <TouchableOpacity className="flex-row items-center py-4" onPress={handleChangePassword}>
+            <View className="flex-1">
+              <Text className="text-body-lg font-inter text-txt-primary">Change Password</Text>
+              <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">Update your account password</Text>
             </View>
           </TouchableOpacity>
         </Card>
@@ -63,13 +63,3 @@ export default function SecurityScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[4] },
-  rowInfo: { flex: 1 },
-  rowTitle: { ...typography.bodyLarge, color: colors.text.primary },
-  rowDesc: { ...typography.bodySmall, color: colors.text.tertiary, marginTop: 2 },
-});

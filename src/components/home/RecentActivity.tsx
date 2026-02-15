@@ -1,61 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius } from '../../theme';
-import { Avatar } from '../ui';
+import { colors } from '../../theme';
+import { Avatar, Skeleton } from '../ui';
 import { formatCurrency, formatTransactionDate } from '../../utils/formatters';
-import { Transaction, getRecentTransactions } from '../../mock/transactions';
+import { useRecentTransactions, type Transaction } from '../../hooks/useTransactions';
 import { lightHaptic } from '../../utils/haptics';
 
-const getTransactionIcon = (type: Transaction['type']) => {
+const getTransactionIcon = (type: string) => {
   switch (type) {
     case 'send':
       return (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M7 17L17 7M17 7H7M17 7V17"
-            stroke={colors.error.main}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <Path d="M7 17L17 7M17 7H7M17 7V17" stroke={colors.error.main} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     case 'receive':
       return (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M17 7L7 17M7 17H17M7 17V7"
-            stroke={colors.success.main}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <Path d="M17 7L7 17M7 17H17M7 17V7" stroke={colors.success.main} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     case 'deposit':
       return (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M12 5V19M5 12L12 19L19 12"
-            stroke={colors.success.main}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <Path d="M12 5V19M5 12L12 19L19 12" stroke={colors.success.main} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     case 'withdraw':
       return (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M12 19V5M5 12L12 5L19 12"
-            stroke={colors.error.main}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <Path d="M12 19V5M5 12L12 5L19 12" stroke={colors.error.main} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     default:
@@ -67,10 +43,22 @@ const getTransactionIcon = (type: Transaction['type']) => {
   }
 };
 
+const getIndicatorColor = (type: string) => {
+  switch (type) {
+    case 'receive':
+    case 'deposit':
+      return 'bg-success-main';
+    case 'send':
+    case 'withdraw':
+      return 'bg-error-main';
+    default:
+      return 'bg-txt-tertiary';
+  }
+};
+
 const getTransactionColor = (transaction: Transaction) => {
   if (transaction.status === 'failed') return colors.error.main;
   if (transaction.status === 'pending') return colors.warning.main;
-
   switch (transaction.type) {
     case 'receive':
     case 'deposit':
@@ -83,8 +71,8 @@ const getTransactionColor = (transaction: Transaction) => {
   }
 };
 
-const getAmountPrefix = (transaction: Transaction) => {
-  switch (transaction.type) {
+const getAmountPrefix = (type: string) => {
+  switch (type) {
     case 'receive':
     case 'deposit':
       return '+';
@@ -105,47 +93,76 @@ const getTransactionName = (transaction: Transaction) => {
 interface TransactionItemProps {
   transaction: Transaction;
   onPress: () => void;
+  isLast: boolean;
 }
 
-const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onPress }) => {
+const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onPress, isLast }) => {
   const name = getTransactionName(transaction);
   const amountColor = getTransactionColor(transaction);
-  const prefix = getAmountPrefix(transaction);
+  const prefix = getAmountPrefix(transaction.type);
+  const indicatorClass = getIndicatorColor(transaction.type);
 
   return (
-    <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.iconContainer}>
+    <TouchableOpacity
+      className={`flex-row items-center px-4 py-3 ${!isLast ? 'mb-1' : ''}`}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {/* Color indicator bar */}
+      <View className={`w-1 h-10 rounded-full ${indicatorClass} mr-3`} />
+
+      <View className="mr-3">
         {transaction.recipient || transaction.sender ? (
           <Avatar name={name} size="medium" />
         ) : (
-          <View style={styles.iconCircle}>{getTransactionIcon(transaction.type)}</View>
+          <View className="w-11 h-11 rounded-full bg-bg-tertiary items-center justify-center">
+            {getTransactionIcon(transaction.type)}
+          </View>
         )}
       </View>
 
-      <View style={styles.itemContent}>
-        <Text style={styles.itemName} numberOfLines={1}>
+      <View className="flex-1 mr-3">
+        <Text className="text-body-lg font-inter text-txt-primary mb-0.5" numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.itemDate}>
-          {formatTransactionDate(transaction.createdAt)}
+        <Text className="text-body-sm font-inter text-txt-tertiary">
+          {formatTransactionDate(transaction.created_at)}
         </Text>
       </View>
 
-      <View style={styles.itemAmount}>
-        <Text style={[styles.amount, { color: amountColor }]}>
+      <View className="items-end">
+        <Text className="text-title-md font-inter-semibold" style={{ color: amountColor }}>
           {prefix}{formatCurrency(transaction.amount)}
         </Text>
         {transaction.status === 'pending' && (
-          <Text style={styles.pendingLabel}>Pending</Text>
+          <Text className="text-label-sm font-inter-medium text-warning-main mt-0.5">
+            Pending
+          </Text>
         )}
       </View>
     </TouchableOpacity>
   );
 };
 
+const TransactionSkeleton = () => (
+  <View className="px-4 py-3">
+    <View className="flex-row items-center">
+      <Skeleton width={4} height={40} borderRadius={2} />
+      <View className="ml-3 mr-3">
+        <Skeleton width={44} height={44} borderRadius={22} />
+      </View>
+      <View className="flex-1">
+        <Skeleton width={120} height={16} borderRadius={4} />
+        <Skeleton width={80} height={12} borderRadius={4} style={{ marginTop: 4 }} />
+      </View>
+      <Skeleton width={60} height={16} borderRadius={4} />
+    </View>
+  </View>
+);
+
 export const RecentActivity: React.FC = () => {
   const router = useRouter();
-  const recentTransactions = getRecentTransactions(5);
+  const { data: recentTransactions, isLoading } = useRecentTransactions(5);
 
   const handleViewAll = () => {
     lightHaptic();
@@ -158,92 +175,45 @@ export const RecentActivity: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Recent Activity</Text>
-        <TouchableOpacity onPress={handleViewAll}>
-          <Text style={styles.viewAll}>View All</Text>
+    <View className="mt-8">
+      <View className="flex-row justify-between items-baseline mb-3">
+        <Text className="text-title-md font-inter-medium text-txt-primary">
+          Recent Activity
+        </Text>
+        <TouchableOpacity
+          onPress={handleViewAll}
+          className="px-3 py-1 rounded-full border border-accent-500"
+        >
+          <Text className="text-label-lg font-inter-medium text-accent-500">
+            View All
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.list}>
-        {recentTransactions.map((transaction) => (
-          <TransactionItem
-            key={transaction.id}
-            transaction={transaction}
-            onPress={() => handleTransactionPress(transaction.id)}
-          />
-        ))}
+      <View className="bg-bg-card rounded-2xl py-2">
+        {isLoading ? (
+          <>
+            <TransactionSkeleton />
+            <TransactionSkeleton />
+            <TransactionSkeleton />
+          </>
+        ) : recentTransactions && recentTransactions.length > 0 ? (
+          recentTransactions.map((transaction, index) => (
+            <TransactionItem
+              key={transaction.id}
+              transaction={transaction}
+              isLast={index === recentTransactions.length - 1}
+              onPress={() => handleTransactionPress(transaction.id)}
+            />
+          ))
+        ) : (
+          <View className="py-8 items-center">
+            <Text className="text-body-md font-inter text-txt-tertiary">
+              No recent transactions
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginTop: spacing[8],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: spacing[3],
-  },
-  title: {
-    ...typography.titleMedium,
-    color: colors.text.primary,
-  },
-  viewAll: {
-    ...typography.labelLarge,
-    color: colors.primary[500],
-  },
-  list: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  iconContainer: {
-    marginRight: spacing[3],
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background.tertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  itemContent: {
-    flex: 1,
-    marginRight: spacing[3],
-  },
-  itemName: {
-    ...typography.bodyLarge,
-    color: colors.text.primary,
-    marginBottom: 2,
-  },
-  itemDate: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-  },
-  itemAmount: {
-    alignItems: 'flex-end',
-  },
-  amount: {
-    ...typography.titleMedium,
-    fontWeight: '600',
-  },
-  pendingLabel: {
-    ...typography.labelSmall,
-    color: colors.warning.main,
-    marginTop: 2,
-  },
-});

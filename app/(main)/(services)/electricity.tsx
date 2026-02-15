@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { useRouter } from 'expo-router';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
-import { Button } from '../../../src/components/ui';
+import { Button, PinInput, Keypad } from '../../../src/components/ui';
 import { electricityProviders } from '../../../src/mock/services';
 import { formatCurrency } from '../../../src/utils/formatters';
 import { lightHaptic, withOpacity } from '../../../src/utils';
 import { useUIStore } from '../../../src/stores';
+import { usePayElectricity } from '../../../src/hooks/useBills';
 
 export default function ElectricityScreen() {
+  const router = useRouter();
   const showToast = useUIStore((state) => state.showToast);
+  const payElectricity = usePayElectricity();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [meterNumber, setMeterNumber] = useState('');
   const [meterType, setMeterType] = useState<'prepaid' | 'postpaid'>('prepaid');
   const [amount, setAmount] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState(false);
 
   const handleProviderSelect = (providerId: string) => {
     lightHaptic();
@@ -25,57 +32,156 @@ export default function ElectricityScreen() {
 
   const handleContinue = () => {
     if (!isValid) return;
-    const provider = electricityProviders.find(p => p.id === selectedProvider);
-    showToast({
-      type: 'success',
-      title: `Paying ${formatCurrency(parseFloat(amount))} for meter ${meterNumber}`,
-      message: `${provider?.name} - ${meterType === 'prepaid' ? 'Prepaid' : 'Postpaid'}`
-    });
+    setShowPin(true);
   };
 
+  const handlePinComplete = async (enteredPin: string) => {
+    if (!selectedProvider) return;
+    try {
+      await payElectricity.mutateAsync({
+        meterNumber,
+        provider: selectedProvider,
+        amountLocal: parseFloat(amount),
+        meterType,
+        pin: enteredPin,
+      });
+      const provider = electricityProviders.find(p => p.id === selectedProvider);
+      showToast({
+        type: 'success',
+        title: 'Payment successful',
+        message: `${formatCurrency(parseFloat(amount))} for meter ${meterNumber} (${provider?.name})`,
+      });
+      router.back();
+    } catch (err: any) {
+      if (err.code === 'INVALID_PIN') {
+        setPinError(true);
+        setPin('');
+      } else {
+        showToast({ type: 'error', title: 'Payment failed', message: err.message });
+        setShowPin(false);
+        setPin('');
+      }
+    }
+  };
+
+  const handleKeyPress = (key: string) => {
+    if (pin.length < 6) {
+      const newPin = pin + key;
+      setPin(newPin);
+      setPinError(false);
+      if (newPin.length === 6) {
+        handlePinComplete(newPin);
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    setPin(pin.slice(0, -1));
+    setPinError(false);
+  };
+
+  if (showPin) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-primary">
+        <Header showBack title="Enter PIN" onBack={() => { setShowPin(false); setPin(''); }} />
+
+        <View className="flex-1 items-center pt-8">
+          <Text className="text-headline-sm font-inter-semibold text-txt-primary mb-2">
+            Enter your PIN to confirm
+          </Text>
+          <Text className="text-body-md font-inter text-txt-secondary mb-8">
+            Paying {formatCurrency(parseFloat(amount))} for electricity
+          </Text>
+
+          <View className="mb-4">
+            <PinInput
+              value={pin}
+              onChange={setPin}
+              error={pinError}
+              disabled={payElectricity.isPending}
+            />
+          </View>
+
+          {pinError && (
+            <Text className="text-body-md font-inter text-error-main">
+              Incorrect PIN. Please try again.
+            </Text>
+          )}
+        </View>
+
+        <Keypad
+          onKeyPress={handleKeyPress}
+          onDelete={handleDelete}
+          disabled={payElectricity.isPending}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack title="Electricity" />
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Select Provider</Text>
-              <View style={styles.providers}>
+            <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 pb-4" showsVerticalScrollIndicator={false}>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Select Provider</Text>
+              <View className="flex-row flex-wrap gap-2">
                 {electricityProviders.map((provider) => (
                   <TouchableOpacity
                     key={provider.id}
-                    style={[styles.providerCard, selectedProvider === provider.id && styles.providerCardSelected]}
+                    className={`rounded-lg border px-3 py-2 ${
+                      selectedProvider === provider.id
+                        ? 'border-accent-500'
+                        : 'bg-bg-secondary border-border'
+                    }`}
+                    style={selectedProvider === provider.id ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
                     onPress={() => handleProviderSelect(provider.id)}
                   >
-                    <Text style={[styles.providerName, selectedProvider === provider.id && styles.providerNameSelected]}>{provider.name}</Text>
+                    <Text className={`text-label-md font-inter-medium ${
+                      selectedProvider === provider.id ? 'text-accent-500' : 'text-txt-primary'
+                    }`}>{provider.name}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.label}>Meter Type</Text>
-              <View style={styles.meterTypes}>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Meter Type</Text>
+              <View className="flex-row gap-3">
                 <TouchableOpacity
-                  style={[styles.meterTypeCard, meterType === 'prepaid' && styles.meterTypeCardSelected]}
+                  className={`flex-1 rounded-xl border py-3 items-center ${
+                    meterType === 'prepaid'
+                      ? 'border-accent-500'
+                      : 'bg-bg-secondary border-border'
+                  }`}
+                  style={meterType === 'prepaid' ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
                   onPress={() => { lightHaptic(); setMeterType('prepaid'); }}
                 >
-                  <Text style={[styles.meterTypeText, meterType === 'prepaid' && styles.meterTypeTextSelected]}>Prepaid</Text>
+                  <Text className={`text-label-lg font-inter-medium ${
+                    meterType === 'prepaid' ? 'text-accent-500' : 'text-txt-secondary'
+                  }`}>Prepaid</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.meterTypeCard, meterType === 'postpaid' && styles.meterTypeCardSelected]}
+                  className={`flex-1 rounded-xl border py-3 items-center ${
+                    meterType === 'postpaid'
+                      ? 'border-accent-500'
+                      : 'bg-bg-secondary border-border'
+                  }`}
+                  style={meterType === 'postpaid' ? { backgroundColor: withOpacity(colors.primary[500], 0.06) } : undefined}
                   onPress={() => { lightHaptic(); setMeterType('postpaid'); }}
                 >
-                  <Text style={[styles.meterTypeText, meterType === 'postpaid' && styles.meterTypeTextSelected]}>Postpaid</Text>
+                  <Text className={`text-label-lg font-inter-medium ${
+                    meterType === 'postpaid' ? 'text-accent-500' : 'text-txt-secondary'
+                  }`}>Postpaid</Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Meter Number</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Meter Number</Text>
               <TextInput
-                style={styles.input}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                 value={meterNumber}
                 onChangeText={setMeterNumber}
                 placeholder="Enter meter number"
@@ -84,9 +190,9 @@ export default function ElectricityScreen() {
                 maxLength={13}
               />
 
-              <Text style={styles.label}>Amount</Text>
+              <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2 mt-4">Amount</Text>
               <TextInput
-                style={styles.input}
+                className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                 value={amount}
                 onChangeText={setAmount}
                 placeholder="Enter amount"
@@ -94,14 +200,21 @@ export default function ElectricityScreen() {
                 keyboardType="numeric"
               />
 
-              <View style={styles.quickAmounts}>
+              <View className="flex-row flex-wrap gap-2 mt-4">
                 {[1000, 2000, 5000, 10000].map((value) => (
                   <TouchableOpacity
                     key={value}
-                    style={[styles.quickAmount, amount === value.toString() && styles.quickAmountSelected]}
+                    className={`rounded-lg px-4 py-2 border ${
+                      amount === value.toString()
+                        ? 'border-accent-500'
+                        : 'bg-bg-secondary border-border'
+                    }`}
+                    style={amount === value.toString() ? { backgroundColor: withOpacity(colors.primary[500], 0.12) } : undefined}
                     onPress={() => { lightHaptic(); setAmount(value.toString()); }}
                   >
-                    <Text style={[styles.quickAmountText, amount === value.toString() && styles.quickAmountTextSelected]}>
+                    <Text className={`text-label-lg font-inter-medium ${
+                      amount === value.toString() ? 'text-accent-500' : 'text-txt-secondary'
+                    }`}>
                       {formatCurrency(value)}
                     </Text>
                   </TouchableOpacity>
@@ -109,7 +222,7 @@ export default function ElectricityScreen() {
               </View>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button title="Continue" onPress={handleContinue} fullWidth disabled={!isValid} />
             </View>
           </View>
@@ -118,28 +231,3 @@ export default function ElectricityScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  label: { ...typography.labelLarge, color: colors.text.secondary, marginBottom: spacing[2], marginTop: spacing[4] },
-  providers: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  providerCard: { backgroundColor: colors.background.secondary, borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
-  providerCardSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.06) },
-  providerName: { ...typography.labelMedium, color: colors.text.primary },
-  providerNameSelected: { color: colors.primary[500] },
-  meterTypes: { flexDirection: 'row', gap: spacing[3] },
-  meterTypeCard: { flex: 1, backgroundColor: colors.background.secondary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingVertical: spacing[3], alignItems: 'center' },
-  meterTypeCardSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.06) },
-  meterTypeText: { ...typography.labelLarge, color: colors.text.secondary },
-  meterTypeTextSelected: { color: colors.primary[500] },
-  input: { backgroundColor: colors.background.tertiary, borderRadius: borderRadius.xl, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[4], paddingVertical: 0, fontSize: 16, color: colors.text.primary, height: layout.inputHeight },
-  quickAmounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[4] },
-  quickAmount: { backgroundColor: colors.background.secondary, borderRadius: borderRadius.lg, paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderWidth: 1, borderColor: colors.border.default },
-  quickAmountSelected: { borderColor: colors.primary[500], backgroundColor: withOpacity(colors.primary[500], 0.12) },
-  quickAmountText: { ...typography.labelLarge, color: colors.text.secondary },
-  quickAmountTextSelected: { color: colors.primary[500] },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[8] },
-});

@@ -1,30 +1,36 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Avatar, Button, Badge } from '../../../src/components/ui';
 import { useAuthStore, useUIStore } from '../../../src/stores';
 import { useRouter } from 'expo-router';
 import { lightHaptic } from '../../../src/utils/haptics';
+import { useUpdateProfile } from '../../../src/hooks/useProfile';
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const showToast = useUIStore((state) => state.showToast);
+  const updateProfile = useUpdateProfile();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [username, setUsername] = useState(user?.username || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    setIsSaving(true);
     lightHaptic();
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    showToast({ type: 'success', title: 'Profile updated successfully' });
-    setIsSaving(false);
-    router.back();
+    try {
+      await updateProfile.mutateAsync({
+        display_name: displayName,
+        username,
+        email,
+      });
+      showToast({ type: 'success', title: 'Profile updated successfully' });
+      router.back();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update failed', message: err.message });
+    }
   };
 
   const handleChangePhoto = () => {
@@ -33,40 +39,40 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Header showBack title="Edit Profile" />
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
+          className="flex-1"
+          contentContainerClassName="px-5 pt-4 pb-4"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View>
-              <View style={styles.avatarSection}>
+              <View className="items-center mb-8">
                 <Avatar name={displayName} size="xlarge" />
-                <TouchableOpacity style={styles.changePhoto} onPress={handleChangePhoto}>
-                  <Text style={styles.changePhotoText}>Change Photo</Text>
+                <TouchableOpacity className="mt-3" onPress={handleChangePhoto}>
+                  <Text className="text-label-lg font-inter-medium text-accent-500">Change Photo</Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.form}>
-                <Text style={styles.label}>Display Name</Text>
+              <View className="gap-4">
+                <Text className="text-label-lg font-inter-medium text-txt-secondary mb-1">Display Name</Text>
                 <TextInput
-                  style={styles.input}
+                  className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                   value={displayName}
                   onChangeText={setDisplayName}
                   placeholder="Your name"
                   placeholderTextColor={colors.text.tertiary}
                 />
 
-                <Text style={styles.label}>Username</Text>
+                <Text className="text-label-lg font-inter-medium text-txt-secondary mb-1">Username</Text>
                 <TextInput
-                  style={styles.input}
+                  className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                   value={username}
                   onChangeText={setUsername}
                   placeholder="username"
@@ -74,9 +80,9 @@ export default function EditProfileScreen() {
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.label}>Email</Text>
+                <Text className="text-label-lg font-inter-medium text-txt-secondary mb-1">Email</Text>
                 <TextInput
-                  style={styles.input}
+                  className="bg-bg-tertiary rounded-xl border border-border px-4 py-0 text-[16px] text-txt-primary h-14"
                   value={email}
                   onChangeText={setEmail}
                   placeholder="email@example.com"
@@ -85,15 +91,15 @@ export default function EditProfileScreen() {
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.label}>Phone Number</Text>
-                <View style={styles.readOnlyField}>
-                  <Text style={styles.readOnlyText}>{user?.phoneNumber || '+234 XXX XXX XXXX'}</Text>
+                <Text className="text-label-lg font-inter-medium text-txt-secondary mb-1">Phone Number</Text>
+                <View className="flex-row items-center justify-between bg-bg-tertiary rounded-xl border border-border px-4 h-14">
+                  <Text className="text-[16px] text-txt-secondary">{user?.phoneNumber || '+234 XXX XXX XXXX'}</Text>
                   <Badge label="Verified" variant="success" size="small" />
                 </View>
 
-                <Text style={styles.label}>Account Status</Text>
-                <View style={styles.readOnlyField}>
-                  <Text style={styles.readOnlyText}>
+                <Text className="text-label-lg font-inter-medium text-txt-secondary mb-1">Account Status</Text>
+                <View className="flex-row items-center justify-between bg-bg-tertiary rounded-xl border border-border px-4 h-14">
+                  <Text className="text-[16px] text-txt-secondary">
                     {user?.isVerified ? 'Verified' : 'Unverified'}
                   </Text>
                   {user?.isVerified && <Badge label="KYC Complete" variant="success" size="small" />}
@@ -102,49 +108,10 @@ export default function EditProfileScreen() {
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
-        <View style={styles.footer}>
-          <Button title="Save Changes" onPress={handleSave} fullWidth loading={isSaving} />
+        <View className="px-5 pb-8">
+          <Button title="Save Changes" onPress={handleSave} fullWidth loading={updateProfile.isPending} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  flex: { flex: 1 },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  avatarSection: { alignItems: 'center', marginBottom: spacing[8] },
-  changePhoto: { marginTop: spacing[3] },
-  changePhotoText: { ...typography.labelLarge, color: colors.primary[500] },
-  form: { gap: spacing[4] },
-  label: { ...typography.labelLarge, color: colors.text.secondary, marginBottom: spacing[1] },
-  input: {
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingHorizontal: spacing[4],
-    paddingVertical: 0,
-    fontSize: 16,
-    color: colors.text.primary,
-    height: layout.inputHeight,
-  },
-  readOnlyField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingHorizontal: spacing[4],
-    height: layout.inputHeight,
-  },
-  readOnlyText: {
-    fontSize: 16,
-    color: colors.text.secondary,
-  },
-  footer: { paddingHorizontal: spacing[5], paddingBottom: spacing[8] },
-});

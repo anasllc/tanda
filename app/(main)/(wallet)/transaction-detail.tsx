@@ -1,19 +1,19 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Share } from 'react-native';
+import { View, Text, ScrollView, Share, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Avatar, Badge, Button, Card } from '../../../src/components/ui';
-import { getTransactionById } from '../../../src/mock/transactions';
+import { useTransactionDetail } from '../../../src/hooks/useTransactions';
 import { formatCurrency, formatFullDate, formatTime } from '../../../src/utils/formatters';
 import { useUIStore } from '../../../src/stores';
 import { lightHaptic } from '../../../src/utils/haptics';
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const transaction = id ? getTransactionById(id) : null;
+  const { data: transaction, isLoading } = useTransactionDetail(id);
   const showToast = useUIStore((state) => state.showToast);
 
   const handleShareReceipt = async () => {
@@ -25,8 +25,8 @@ Tanda Transaction Receipt
 
 Amount: ${transaction.type === 'receive' || transaction.type === 'deposit' ? '+' : '-'}${formatCurrency(transaction.amount)}
 Status: ${transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-Date: ${formatFullDate(transaction.createdAt)}
-Time: ${formatTime(transaction.createdAt)}
+Date: ${formatFullDate(transaction.created_at)}
+Time: ${formatTime(transaction.created_at)}
 Reference: ${transaction.reference}
 ${transaction.description ? `Description: ${transaction.description}` : ''}
 
@@ -44,12 +44,23 @@ Sent via Tanda
     }
   };
 
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-primary">
+        <Header showBack title="Transaction" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={colors.primary[500]} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!transaction) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView className="flex-1 bg-bg-primary">
         <Header showBack title="Transaction" />
-        <View style={styles.notFound}>
-          <Text style={styles.notFoundText}>Transaction not found</Text>
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-body-lg font-inter text-txt-tertiary">Transaction not found</Text>
         </View>
       </SafeAreaView>
     );
@@ -68,13 +79,15 @@ Sent via Tanda
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <Header showBack title="Transaction Details" />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
+      <ScrollView contentContainerClassName="px-5 pt-4 pb-8">
+        <View className="items-center mb-8">
           <Avatar name={name} size="xlarge" />
-          <Text style={[styles.amount, isPositive ? styles.positive : styles.negative]}>
+          <Text className={`text-display-md font-inter-bold mt-4 mb-3 ${
+            isPositive ? 'text-success-main' : 'text-txt-primary'
+          }`}>
             {isPositive ? '+' : '-'}{formatCurrency(transaction.amount)}
           </Text>
           <Badge
@@ -83,36 +96,36 @@ Sent via Tanda
           />
         </View>
 
-        <Card style={styles.detailsCard}>
-          <View style={styles.row}>
-            <Text style={styles.label}>{transaction.sender ? 'From' : 'To'}</Text>
-            <Text style={styles.value}>{name}</Text>
+        <Card className="mb-6">
+          <View className="flex-row justify-between py-3 border-b border-border">
+            <Text className="text-body-md font-inter text-txt-secondary">{transaction.sender ? 'From' : 'To'}</Text>
+            <Text className="text-body-md font-inter text-txt-primary font-medium text-right flex-1 ml-4">{name}</Text>
           </View>
 
-          <View style={styles.row}>
-            <Text style={styles.label}>Type</Text>
-            <Text style={styles.value}>{transaction.type.replace('_', ' ').toUpperCase()}</Text>
+          <View className="flex-row justify-between py-3 border-b border-border">
+            <Text className="text-body-md font-inter text-txt-secondary">Type</Text>
+            <Text className="text-body-md font-inter text-txt-primary font-medium text-right flex-1 ml-4">{transaction.type.replace('_', ' ').toUpperCase()}</Text>
           </View>
 
-          <View style={styles.row}>
-            <Text style={styles.label}>Date</Text>
-            <Text style={styles.value}>{formatFullDate(transaction.createdAt)}</Text>
+          <View className="flex-row justify-between py-3 border-b border-border">
+            <Text className="text-body-md font-inter text-txt-secondary">Date</Text>
+            <Text className="text-body-md font-inter text-txt-primary font-medium text-right flex-1 ml-4">{formatFullDate(transaction.created_at)}</Text>
           </View>
 
-          <View style={styles.row}>
-            <Text style={styles.label}>Time</Text>
-            <Text style={styles.value}>{formatTime(transaction.createdAt)}</Text>
+          <View className="flex-row justify-between py-3 border-b border-border">
+            <Text className="text-body-md font-inter text-txt-secondary">Time</Text>
+            <Text className="text-body-md font-inter text-txt-primary font-medium text-right flex-1 ml-4">{formatTime(transaction.created_at)}</Text>
           </View>
 
-          <View style={styles.row}>
-            <Text style={styles.label}>Reference</Text>
-            <Text style={styles.value}>{transaction.reference}</Text>
+          <View className="flex-row justify-between py-3 border-b border-border">
+            <Text className="text-body-md font-inter text-txt-secondary">Reference</Text>
+            <Text className="text-body-md font-inter text-txt-primary font-medium text-right flex-1 ml-4">{transaction.reference}</Text>
           </View>
 
           {transaction.description && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Description</Text>
-              <Text style={styles.value}>{transaction.description}</Text>
+            <View className="flex-row justify-between py-3">
+              <Text className="text-body-md font-inter text-txt-secondary">Description</Text>
+              <Text className="text-body-md font-inter text-txt-primary font-medium text-right flex-1 ml-4">{transaction.description}</Text>
             </View>
           )}
         </Card>
@@ -127,18 +140,3 @@ Sent via Tanda
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[8] },
-  notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notFoundText: { ...typography.bodyLarge, color: colors.text.tertiary },
-  header: { alignItems: 'center', marginBottom: spacing[8] },
-  amount: { ...typography.displayMedium, marginTop: spacing[4], marginBottom: spacing[3] },
-  positive: { color: colors.success.main },
-  negative: { color: colors.text.primary },
-  detailsCard: { marginBottom: spacing[6] },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing[3], borderBottomWidth: 1, borderBottomColor: colors.border.default },
-  label: { ...typography.bodyMedium, color: colors.text.secondary },
-  value: { ...typography.bodyMedium, color: colors.text.primary, fontWeight: '500', textAlign: 'right', flex: 1, marginLeft: spacing[4] },
-});

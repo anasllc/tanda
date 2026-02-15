@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { lightHaptic } from '../../../src/utils/haptics';
 import { useUIStore } from '../../../src/stores';
 
@@ -60,102 +60,76 @@ export default function ServicesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Bills</Text>
-        <Text style={styles.subtitle}>Pay bills and buy services instantly</Text>
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={['top']}>
+      <ScrollView contentContainerClassName="px-5 pt-2" showsVerticalScrollIndicator={false}>
+        <Text className="text-headline-lg font-inter-bold text-txt-primary mb-1">Bills</Text>
+        <Text className="text-body-lg font-inter text-txt-secondary mb-6">Pay bills and buy services instantly</Text>
 
-        <View style={styles.grid}>
+        <View className="flex-row flex-wrap gap-4">
           {services.map((service) => (
             <TouchableOpacity
               key={service.id}
-              style={styles.serviceCard}
+              className="w-[47%] items-center bg-bg-secondary rounded-2xl border border-border py-6"
               onPress={() => handleServicePress(service)}
               activeOpacity={0.7}
             >
-              <View style={[styles.iconContainer, { backgroundColor: service.color + '20' }]}>
+              <View
+                className="w-16 h-16 rounded-xl items-center justify-center mb-3"
+                style={{ backgroundColor: service.color + '20' }}
+              >
                 {getIcon(service.icon, service.color)}
               </View>
-              <Text style={styles.serviceLabel}>{service.label}</Text>
+              <Text className="text-title-sm font-inter-semibold text-txt-primary text-center">{service.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.socialSection}>
-          <Text style={styles.sectionTitle}>Social</Text>
-          <View style={styles.socialButtons}>
-            <TouchableOpacity style={styles.socialButton} onPress={handleBillSplit} activeOpacity={0.7}>
-              <View style={[styles.socialIconContainer, { backgroundColor: colors.primary[500] + '20' }]}>
+        <View className="mt-8">
+          <Text className="text-title-md font-inter-medium text-txt-primary mb-4">Social</Text>
+          <View className="gap-3">
+            <TouchableOpacity
+              className="flex-row items-center bg-bg-secondary rounded-2xl border border-border p-4"
+              onPress={handleBillSplit}
+              activeOpacity={0.7}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+                style={{ backgroundColor: colors.primary[500] + '20' }}
+              >
                 <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                   <Path d="M16 3H21V8M21 3L13 11M8 21H3V16M3 21L11 13" stroke={colors.primary[500]} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </View>
-              <View style={styles.socialTextContainer}>
-                <Text style={styles.socialButtonLabel}>Split a Bill</Text>
-                <Text style={styles.socialButtonDesc}>Share expenses with friends</Text>
+              <View className="flex-1">
+                <Text className="text-title-sm font-inter-semibold text-txt-primary mb-0.5">Split a Bill</Text>
+                <Text className="text-body-sm font-inter text-txt-secondary">Share expenses with friends</Text>
               </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton} onPress={handleCreatePool} activeOpacity={0.7}>
-              <View style={[styles.socialIconContainer, { backgroundColor: colors.success.main + '20' }]}>
+            <TouchableOpacity
+              className="flex-row items-center bg-bg-secondary rounded-2xl border border-border p-4"
+              onPress={handleCreatePool}
+              activeOpacity={0.7}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+                style={{ backgroundColor: colors.success.main + '20' }}
+              >
                 <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                   <Circle cx={9} cy={7} r={4} stroke={colors.success.main} strokeWidth={2} />
                   <Path d="M3 21V19C3 16.79 4.79 15 7 15H11C13.21 15 15 16.79 15 19V21" stroke={colors.success.main} strokeWidth={2} />
                   <Path d="M19 8V14M16 11H22" stroke={colors.success.main} strokeWidth={2} strokeLinecap="round" />
                 </Svg>
               </View>
-              <View style={styles.socialTextContainer}>
-                <Text style={styles.socialButtonLabel}>Create Pool</Text>
-                <Text style={styles.socialButtonDesc}>Collect money together</Text>
+              <View className="flex-1">
+                <Text className="text-title-sm font-inter-semibold text-txt-primary mb-0.5">Create Pool</Text>
+                <Text className="text-body-sm font-inter text-txt-secondary">Collect money together</Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.bottomPadding} />
+        <View className="h-[100px]" />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
-  content: { paddingHorizontal: spacing[5], paddingTop: spacing[2] },
-  title: { ...typography.headlineLarge, color: colors.text.primary, marginBottom: spacing[1] },
-  subtitle: { ...typography.bodyLarge, color: colors.text.secondary, marginBottom: spacing[6] },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4] },
-  serviceCard: {
-    width: '47%',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingVertical: spacing[6],
-  },
-  iconContainer: { width: 64, height: 64, borderRadius: borderRadius.xl, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[3] },
-  serviceLabel: { ...typography.titleSmall, color: colors.text.primary, textAlign: 'center' },
-  socialSection: { marginTop: spacing[8] },
-  sectionTitle: { ...typography.titleMedium, color: colors.text.primary, marginBottom: spacing[4] },
-  socialButtons: { gap: spacing[3] },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius['2xl'],
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    padding: spacing[4],
-  },
-  socialIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing[4],
-  },
-  socialTextContainer: { flex: 1 },
-  socialButtonLabel: { ...typography.titleSmall, color: colors.text.primary, marginBottom: 2 },
-  socialButtonDesc: { ...typography.bodySmall, color: colors.text.secondary },
-  bottomPadding: { height: layout.tabBarHeight + spacing[4] },
-});

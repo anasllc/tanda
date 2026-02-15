@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { Button, Avatar, Card, PinInput, Keypad } from '../../../src/components/ui';
 import { formatCurrency } from '../../../src/utils/formatters';
-import { getContactById } from '../../../src/mock/contacts';
+import { useSendToRegistered } from '../../../src/hooks/useSendMoney';
+import { useUIStore } from '../../../src/stores';
 
 export default function ConfirmScreen() {
   const router = useRouter();
+  const showToast = useUIStore((state) => state.showToast);
+  const sendMoney = useSendToRegistered();
   const params = useLocalSearchParams<{
     contactId: string;
     contactName: string;
+    contactUsername: string;
     amount: string;
   }>();
 
@@ -20,9 +24,7 @@ export default function ConfirmScreen() {
   const [showPin, setShowPin] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  const contact = params.contactId ? getContactById(params.contactId) : null;
   const amount = parseFloat(params.amount || '0');
   const fee = 0; // Free transfers
 
@@ -31,25 +33,33 @@ export default function ConfirmScreen() {
   };
 
   const handlePinComplete = async (enteredPin: string) => {
-    setIsProcessing(true);
+    try {
+      const result = await sendMoney.mutateAsync({
+        recipient: params.contactId,
+        amountUsdc: amount,
+        memo: note || undefined,
+        pin: enteredPin,
+      });
 
-    // Simulate verification
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (enteredPin === '123456' || enteredPin.length === 6) {
       router.replace({
         pathname: '/(main)/(send)/success',
         params: {
           contactName: params.contactName,
           amount: params.amount,
+          transactionId: result.transaction_id,
+          reference: result.reference,
         },
       });
-    } else {
-      setPinError(true);
-      setPin('');
+    } catch (err: any) {
+      if (err.code === 'INVALID_PIN') {
+        setPinError(true);
+        setPin('');
+      } else {
+        showToast({ type: 'error', title: 'Transfer failed', message: err.message });
+        setShowPin(false);
+        setPin('');
+      }
     }
-
-    setIsProcessing(false);
   };
 
   const handleKeyPress = (key: string) => {
@@ -70,82 +80,97 @@ export default function ConfirmScreen() {
 
   if (showPin) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Header showBack title="Enter PIN" onBack={() => setShowPin(false)} />
+      <SafeAreaView className="flex-1 bg-bg-primary">
+        <Header showBack title="Enter PIN" onBack={() => { setShowPin(false); setPin(''); }} />
 
-        <View style={styles.pinContent}>
-          <Text style={styles.pinTitle}>Enter your PIN to confirm</Text>
-          <Text style={styles.pinSubtitle}>
+        <View className="flex-1 items-center pt-8">
+          <Text className="text-headline-sm font-inter-semibold text-txt-primary mb-2">
+            Enter your PIN to confirm
+          </Text>
+          <Text className="text-body-md font-inter text-txt-secondary mb-8">
             Sending {formatCurrency(amount)} to {params.contactName}
           </Text>
 
-          <View style={styles.pinContainer}>
+          <View className="mb-4">
             <PinInput
               value={pin}
               onChange={setPin}
               error={pinError}
-              disabled={isProcessing}
+              disabled={sendMoney.isPending}
             />
           </View>
 
           {pinError && (
-            <Text style={styles.errorText}>Incorrect PIN. Please try again.</Text>
+            <Text className="text-body-md font-inter text-error-main">
+              Incorrect PIN. Please try again.
+            </Text>
           )}
         </View>
 
         <Keypad
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
-          disabled={isProcessing}
+          disabled={sendMoney.isPending}
         />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-bg-primary">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.flex}>
+          <View className="flex-1">
             <Header showBack title="Confirm Transfer" />
 
-            <View style={styles.content}>
-              <Card style={styles.summaryCard}>
-                <View style={styles.recipientRow}>
+            <View className="flex-1 px-5 pt-4">
+              <Card className="mb-6">
+                <View className="flex-row items-center mb-6">
                   <Avatar name={params.contactName || 'User'} size="large" />
-                  <View style={styles.recipientInfo}>
-                    <Text style={styles.recipientName}>{params.contactName}</Text>
-                    {contact?.username && (
-                      <Text style={styles.recipientUsername}>@{contact.username}</Text>
+                  <View className="ml-4">
+                    <Text className="text-title-lg font-inter-semibold text-txt-primary">
+                      {params.contactName}
+                    </Text>
+                    {params.contactUsername && (
+                      <Text className="text-body-md font-inter text-accent-500 mt-0.5">
+                        @{params.contactUsername}
+                      </Text>
                     )}
                   </View>
                 </View>
 
-                <View style={styles.amountRow}>
-                  <Text style={styles.amountLabel}>Amount</Text>
-                  <Text style={styles.amountValue}>{formatCurrency(amount)}</Text>
+                <View className="flex-row justify-between mb-3">
+                  <Text className="text-body-lg font-inter text-txt-secondary">Amount</Text>
+                  <Text className="text-body-lg font-inter-semibold text-txt-primary">
+                    {formatCurrency(amount)}
+                  </Text>
                 </View>
 
-                <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>Fee</Text>
-                  <Text style={styles.feeValue}>Free</Text>
+                <View className="flex-row justify-between mb-4">
+                  <Text className="text-body-lg font-inter text-txt-secondary">Fee</Text>
+                  <Text className="text-body-lg font-inter text-success-main">Free</Text>
                 </View>
 
-                <View style={styles.divider} />
+                <View className="h-px bg-border mb-4" />
 
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>{formatCurrency(amount + fee)}</Text>
+                <View className="flex-row justify-between">
+                  <Text className="text-title-md font-inter-medium text-txt-primary">Total</Text>
+                  <Text className="text-title-lg font-inter-bold text-txt-primary">
+                    {formatCurrency(amount + fee)}
+                  </Text>
                 </View>
               </Card>
 
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteLabel}>Add a note (optional)</Text>
+              <View className="mb-4">
+                <Text className="text-label-lg font-inter-medium text-txt-secondary mb-2">
+                  Add a note (optional)
+                </Text>
                 <TextInput
-                  style={styles.noteInput}
+                  className="bg-bg-tertiary rounded-xl border border-border p-4 min-h-[100px] text-body-lg font-inter text-txt-primary"
+                  style={{ textAlignVertical: 'top' }}
                   value={note}
                   onChangeText={setNote}
                   placeholder="What's this for?"
@@ -156,7 +181,7 @@ export default function ConfirmScreen() {
               </View>
             </View>
 
-            <View style={styles.footer}>
+            <View className="px-5 pb-8">
               <Button
                 title="Confirm & Send"
                 onPress={handleConfirm}
@@ -169,128 +194,3 @@ export default function ConfirmScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  flex: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-  },
-  summaryCard: {
-    marginBottom: spacing[6],
-  },
-  recipientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[6],
-  },
-  recipientInfo: {
-    marginLeft: spacing[4],
-  },
-  recipientName: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
-  },
-  recipientUsername: {
-    ...typography.bodyMedium,
-    color: colors.primary[500],
-    marginTop: 2,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing[3],
-  },
-  amountLabel: {
-    ...typography.bodyLarge,
-    color: colors.text.secondary,
-  },
-  amountValue: {
-    ...typography.bodyLarge,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  feeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing[4],
-  },
-  feeLabel: {
-    ...typography.bodyLarge,
-    color: colors.text.secondary,
-  },
-  feeValue: {
-    ...typography.bodyLarge,
-    color: colors.success.main,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border.default,
-    marginBottom: spacing[4],
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  totalLabel: {
-    ...typography.titleMedium,
-    color: colors.text.primary,
-  },
-  totalValue: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
-    fontWeight: '700',
-  },
-  noteContainer: {
-    marginBottom: spacing[4],
-  },
-  noteLabel: {
-    ...typography.labelLarge,
-    color: colors.text.secondary,
-    marginBottom: spacing[2],
-  },
-  noteInput: {
-    backgroundColor: colors.background.tertiary,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    padding: spacing[4],
-    minHeight: 100,
-    ...typography.bodyLarge,
-    color: colors.text.primary,
-    textAlignVertical: 'top',
-  },
-  footer: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[8],
-  },
-  pinContent: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: spacing[8],
-  },
-  pinTitle: {
-    ...typography.headlineSmall,
-    color: colors.text.primary,
-    marginBottom: spacing[2],
-  },
-  pinSubtitle: {
-    ...typography.bodyMedium,
-    color: colors.text.secondary,
-    marginBottom: spacing[8],
-  },
-  pinContainer: {
-    marginBottom: spacing[4],
-  },
-  errorText: {
-    ...typography.bodyMedium,
-    color: colors.error.main,
-  },
-});

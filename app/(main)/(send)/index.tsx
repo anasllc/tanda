@@ -1,57 +1,69 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, typography, spacing, borderRadius, layout } from '../../../src/theme';
+import { colors } from '../../../src/theme';
 import { Header } from '../../../src/components/layout';
 import { SearchBar, Avatar, EmptyState } from '../../../src/components/ui';
-import { contacts, Contact, searchContacts, getFavoriteContacts, getRecentContacts } from '../../../src/mock/contacts';
+import { useSearchUsers, type SearchResult } from '../../../src/hooks/useContacts';
+import { useFriends } from '../../../src/hooks/useFriends';
 import { lightHaptic } from '../../../src/utils/haptics';
 
 interface ContactItemProps {
-  contact: Contact;
+  user: SearchResult;
   onPress: () => void;
 }
 
-const ContactItem: React.FC<ContactItemProps> = ({ contact, onPress }) => (
-  <TouchableOpacity style={styles.contactItem} onPress={onPress} activeOpacity={0.7}>
-    <Avatar name={contact.name} size="medium" />
-    <View style={styles.contactInfo}>
-      <Text style={styles.contactName}>{contact.name}</Text>
-      {contact.username ? (
-        <Text style={styles.contactUsername}>@{contact.username}</Text>
+const ContactItem: React.FC<ContactItemProps> = ({ user, onPress }) => (
+  <TouchableOpacity className="flex-row items-center py-3" onPress={onPress} activeOpacity={0.7}>
+    <Avatar name={user.display_name} size="medium" source={user.avatar_url} />
+    <View className="flex-1 ml-3">
+      <Text className="text-body-lg font-inter text-txt-primary">{user.display_name}</Text>
+      {user.username ? (
+        <Text className="text-body-sm font-inter text-accent-500 mt-0.5">@{user.username}</Text>
       ) : (
-        <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
+        <Text className="text-body-sm font-inter text-txt-tertiary mt-0.5">{user.phone}</Text>
       )}
     </View>
-    {!contact.isRegistered && (
-      <View style={styles.inviteBadge}>
-        <Text style={styles.inviteText}>Invite</Text>
-      </View>
-    )}
   </TouchableOpacity>
 );
 
 export default function SendScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: searchResults, isLoading: isSearching } = useSearchUsers(searchQuery);
+  const { data: friendsData } = useFriends('accepted');
 
-  const filteredContacts = searchQuery ? searchContacts(searchQuery) : [];
-  const favoriteContacts = getFavoriteContacts();
-  const recentContacts = getRecentContacts(5);
+  const friends = friendsData?.friends ?? [];
 
-  const handleContactPress = (contact: Contact) => {
+  const handleContactPress = (user: SearchResult) => {
     lightHaptic();
-    if (contact.isRegistered) {
-      router.push({
-        pathname: '/(main)/(send)/amount',
-        params: { contactId: contact.id, contactName: contact.name },
-      });
-    }
+    router.push({
+      pathname: '/(main)/(send)/amount',
+      params: { contactId: user.id, contactName: user.display_name, contactUsername: user.username },
+    });
+  };
+
+  const handleFriendPress = (friend: any) => {
+    lightHaptic();
+    router.push({
+      pathname: '/(main)/(send)/amount',
+      params: { contactId: friend.id, contactName: friend.display_name, contactUsername: friend.username },
+    });
   };
 
   const renderSearchResults = () => {
-    if (filteredContacts.length === 0) {
+    const users = searchResults?.users ?? [];
+
+    if (isSearching) {
+      return (
+        <View className="items-center py-8">
+          <Text className="text-body-md font-inter text-txt-tertiary">Searching...</Text>
+        </View>
+      );
+    }
+
+    if (users.length === 0) {
       return (
         <EmptyState
           type="search"
@@ -63,78 +75,62 @@ export default function SendScreen() {
 
     return (
       <FlatList
-        data={filteredContacts}
+        data={users}
         renderItem={({ item }) => (
-          <ContactItem contact={item} onPress={() => handleContactPress(item)} />
+          <ContactItem user={item} onPress={() => handleContactPress(item)} />
         )}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={{ paddingHorizontal: 20 }}
       />
     );
   };
 
   const renderContacts = () => (
     <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
+      className="flex-1"
+      contentContainerStyle={{ paddingHorizontal: 20 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {recentContacts.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent</Text>
-          <View style={styles.recentRow}>
-            {recentContacts.map((contact) => (
-              <TouchableOpacity
-                key={contact.id}
-                style={styles.recentItem}
-                onPress={() => handleContactPress(contact)}
-              >
-                <Avatar name={contact.name} size="large" />
-                <Text style={styles.recentName} numberOfLines={1}>
-                  {contact.name.split(' ')[0]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {favoriteContacts.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Favorites</Text>
-          {favoriteContacts.map((contact) => (
-            <ContactItem
-              key={contact.id}
-              contact={contact}
-              onPress={() => handleContactPress(contact)}
-            />
+      {friends.length > 0 && (
+        <View className="mb-6">
+          <Text className="text-label-lg font-inter-medium text-txt-tertiary mb-3 uppercase tracking-wide">
+            Friends
+          </Text>
+          {friends.map((friend: any) => (
+            <TouchableOpacity
+              key={friend.id}
+              className="flex-row items-center py-3"
+              onPress={() => handleFriendPress(friend)}
+              activeOpacity={0.7}
+            >
+              <Avatar name={friend.display_name} size="medium" source={friend.avatar_url} />
+              <View className="flex-1 ml-3">
+                <Text className="text-body-lg font-inter text-txt-primary">{friend.display_name}</Text>
+                <Text className="text-body-sm font-inter text-accent-500 mt-0.5">@{friend.username}</Text>
+              </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>All Contacts</Text>
-        {contacts
-          .filter((c) => c.isRegistered)
-          .map((contact) => (
-            <ContactItem
-              key={contact.id}
-              contact={contact}
-              onPress={() => handleContactPress(contact)}
-            />
-          ))}
-      </View>
+      {friends.length === 0 && (
+        <View className="items-center py-12">
+          <Text className="text-body-md font-inter text-txt-tertiary text-center">
+            Search for a user by name, username, or phone number to send money
+          </Text>
+        </View>
+      )}
 
-      <View style={styles.bottomPadding} />
+      <View className="h-8" />
     </ScrollView>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={['top']}>
       <Header title="Send Money" showBack />
 
-      <View style={styles.searchContainer}>
+      <View className="px-5 pb-4">
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -142,87 +138,7 @@ export default function SendScreen() {
         />
       </View>
 
-      {searchQuery ? renderSearchResults() : renderContacts()}
+      {searchQuery.length >= 2 ? renderSearchResults() : renderContacts()}
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  searchContainer: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[4],
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing[5],
-  },
-  list: {
-    paddingHorizontal: spacing[5],
-  },
-  bottomPadding: {
-    height: spacing[8],
-  },
-  section: {
-    marginBottom: spacing[6],
-  },
-  sectionTitle: {
-    ...typography.labelLarge,
-    color: colors.text.tertiary,
-    marginBottom: spacing[3],
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  recentRow: {
-    flexDirection: 'row',
-    gap: spacing[4],
-  },
-  recentItem: {
-    alignItems: 'center',
-    width: 72,
-  },
-  recentName: {
-    ...typography.labelMedium,
-    color: colors.text.secondary,
-    marginTop: spacing[2],
-    textAlign: 'center',
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-  },
-  contactInfo: {
-    flex: 1,
-    marginLeft: spacing[3],
-  },
-  contactName: {
-    ...typography.bodyLarge,
-    color: colors.text.primary,
-  },
-  contactUsername: {
-    ...typography.bodySmall,
-    color: colors.primary[500],
-    marginTop: 2,
-  },
-  contactPhone: {
-    ...typography.bodySmall,
-    color: colors.text.tertiary,
-    marginTop: 2,
-  },
-  inviteBadge: {
-    backgroundColor: colors.primary[500] + '20',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
-    borderRadius: borderRadius.full,
-  },
-  inviteText: {
-    ...typography.labelSmall,
-    color: colors.primary[500],
-  },
-});

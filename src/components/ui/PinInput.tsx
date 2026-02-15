@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Pressable, TextInput, Animated } from 'react-native';
-import { colors, spacing } from '../../theme';
+import { View, Pressable, TextInput } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { colors } from '../../theme';
 import { keypadHaptic, pinErrorHaptic } from '../../utils/haptics';
 
 interface PinInputProps {
@@ -18,17 +24,15 @@ const Dot: React.FC<{ filled: boolean; error: boolean }> = ({
 }) => {
   return (
     <View
-      style={[
-        styles.dot,
-        {
-          backgroundColor: error
-            ? colors.error.main
-            : filled
-            ? colors.primary[500]
-            : colors.border.light,
-          transform: [{ scale: filled ? 1 : 0.6 }],
-        },
-      ]}
+      className="w-4 h-4 rounded-full"
+      style={{
+        backgroundColor: error
+          ? colors.error.main
+          : filled
+          ? colors.primary[500]
+          : colors.border.light,
+        transform: [{ scale: filled ? 1 : 0.6 }],
+      }}
     />
   );
 };
@@ -42,20 +46,24 @@ export const PinInput: React.FC<PinInputProps> = ({
   disabled = false,
 }) => {
   const inputRef = useRef<TextInput>(null);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const shakeX = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeX.value }],
+  }));
 
   useEffect(() => {
     if (error) {
       pinErrorHaptic();
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: -15, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 15, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -15, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 15, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]).start();
+      shakeX.value = withSequence(
+        withTiming(-15, { duration: 50 }),
+        withTiming(15, { duration: 50 }),
+        withTiming(-15, { duration: 50 }),
+        withTiming(15, { duration: 50 }),
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(0, { duration: 50 })
+      );
     }
   }, [error]);
 
@@ -81,7 +89,7 @@ export const PinInput: React.FC<PinInputProps> = ({
     <Pressable onPress={handlePress}>
       <TextInput
         ref={inputRef}
-        style={styles.hiddenInput}
+        className="absolute w-px h-px opacity-0"
         value={value}
         onChangeText={handleChange}
         keyboardType="number-pad"
@@ -92,7 +100,7 @@ export const PinInput: React.FC<PinInputProps> = ({
         caretHidden={true}
       />
 
-      <Animated.View style={[styles.container, { transform: [{ translateX: shakeAnim }] }]}>
+      <Animated.View className="flex-row justify-center gap-4 py-4" style={animatedStyle}>
         {Array.from({ length }).map((_, index) => (
           <Dot
             key={index}
@@ -104,23 +112,3 @@ export const PinInput: React.FC<PinInputProps> = ({
     </Pressable>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing[4],
-    paddingVertical: spacing[4],
-  },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-  },
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-});

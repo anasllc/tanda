@@ -14,6 +14,9 @@ export default function ProfileLayout() {
       <Stack.Screen name="security" />
       <Stack.Screen name="limits" />
       <Stack.Screen name="request-money" />
+      <Stack.Screen name="help" />
+      <Stack.Screen name="about" />
+      <Stack.Screen name="add-friend" />
     </Stack>
   );
 }
